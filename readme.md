@@ -1,4 +1,4 @@
-#nombre del proyecto
+##nombre del proyecto
 Juega ya!   
 
 ##Descripción 
