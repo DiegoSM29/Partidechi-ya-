@@ -1,0 +1,24 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "homepage": "https://github.com/DiegoSM29/Juega-yaaa-#readme",
+  "bugs": {
+    "url": "https://github.com/DiegoSM29/Juega-yaaa-/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DiegoSM29/Juega-yaaa-.git"
+  },
+  "license": "ISC",
+  "author": "Diego Adrian Selaya Molina  diegoselayamolina@gmail.com",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
