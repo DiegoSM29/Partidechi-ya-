@@ -2,10 +2,11 @@ const express = require("express");
 
 const app = express();
 
-const PORT = 3001;
+const PORT = 5050;
 
 app.get("/", (req, res) => {
     res.send("Juega ya!");
+    console.log("Request: ",req.host)
 })
 
 app.get("/info", (req, res) => {
@@ -18,6 +19,8 @@ app.get("/contacto", (req, res) => {
 
 app.get("/recinto", (req, res) => {
     res.send("Módulo de recintos de la app");
+    // console.log("Response: ",res)
+    console.log("")
 })
 
 app.listen(PORT, () => {
