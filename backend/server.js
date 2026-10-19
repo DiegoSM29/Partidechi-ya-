@@ -1,32 +1,18 @@
-const express = require("express");
+// Punto de entrada del servidor - Partidechi ya!
+const app = require("./src/app");
+const { env } = require("./src/config/env");
 
-const app = express();
+const server = app.listen(env.PORT, () => {
+  console.log(`Servidor ejecutandose en: http://localhost:${env.PORT}/api/v1`);
+});
 
-const PORT = 5050;
+// Cierre ordenado ante senales del sistema (Ctrl+C, etc.)
+const shutdown = () => {
+  console.log("\nCerrando servidor...");
+  server.close(() => process.exit(0));
+};
 
-app.get("/", (req, res) => {
-    res.send("Juega ya!");
-    console.log("Request: ",req.host)
-})
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
-app.get("/info", (req, res) => {
-    res.send("Esta app es para armar partidos cuando quieras!");
-})
-
-app.get("/contacto", (req, res) => {
-    res.send("Contactate con el siguiente número: 12345");
-})
-
-app.get("/recinto", (req, res) => {
-    res.send("Módulo de recintos de la app");
-    // console.log("Response: ",res)
-    console.log("")
-})
-
-app.listen(PORT, () => {
-    console.log(`Servidor ejecutandose en: http://localhost:${PORT}`);
-})
-
-app.get("/saludo", (req, res) => {
-    res.send("Bienvenido a partidechi ya!")
-})
+module.exports = server;

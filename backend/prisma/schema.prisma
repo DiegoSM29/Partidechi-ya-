@@ -1,0 +1,43 @@
+// Prisma Schema - Partidechi ya!
+// HU-01: Registro e inicio de sesion (tabla usuarios)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id_usuario     Int              @id @default(autoincrement())
+  nombre         String           @db.VarChar(100)
+  apellido       String           @db.VarChar(100)
+  correo         String           @unique @db.VarChar(150)
+  password_hash  String           @db.VarChar(255)
+  rol            Rol              @default(JUGADOR)
+  telefono       String?          @db.VarChar(30)
+  estado         EstadoUsuario    @default(ACTIVO)
+  fecha_registro DateTime         @default(now())
+
+  @@map("usuarios")
+}
+
+/// Roles permitidos en el sistema: jugador, propietario, administrador
+enum Rol {
+  JUGADOR       @map("jugador")
+  PROPIETARIO   @map("propietario")
+  ADMINISTRADOR @map("administrador")
+
+  @@map("rol")
+}
+
+/// Estados de cuenta de usuario
+enum EstadoUsuario {
+  ACTIVO     @map("activo")
+  INACTIVO   @map("inactivo")
+  SUSPENDIDO @map("suspendido")
+
+  @@map("estado_usuario")
+}
