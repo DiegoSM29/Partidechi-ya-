@@ -39,7 +39,8 @@ DATABASE_URL="postgresql://usuario:contraseña@localhost:5432/partidechi_db?sche
 JWT_SECRET="tu_secreto_jwt_super_seguro"
 
 ### 4. Ejecutar las Migraciones de la Base de datos
-npx prisma migrate dev --name init
+npx prisma migrate dev
+npx prisma generate
 
 ### 5. Iniciar el Servidor en Modo Desarrollo
 npm run dev
@@ -48,8 +49,30 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 ## Endpoints Principales de la API
 * Autenticacion: /api/v1/auth/register, /api/v1/auth/login
 * Usuarios: /api/v1/users/me
-* Canchas y Disponibilidad: /api/v1/courts, /api/v1/courts/:id/availability
+* Canchas: GET /api/v1/courts, GET /api/v1/courts/mine, POST /api/v1/courts, PATCH y DELETE /api/v1/courts/:id
 * Reservas: /api/v1/reservations, /api/v1/reservations/:id/confirm
 * Pagos: /api/v1/reservations/:id/payments, /api/v1/payments/:id/verify
 * Partidos Amistosos: /api/v1/matches, /api/v1/matches/:id/join
 * Administracion: /api/v1/admin/users, /api/v1/admin/statistics
+
+## Gestion de Canchas
+
+Los propietarios pueden registrar, consultar, editar y eliminar sus propias canchas. Cada cancha guarda nombre, ubicacion, latitud, longitud, deporte, precio por hora e identificador del propietario.
+
+Los deportes permitidos son futbol 5, futbol 8, futbol 11, wally, padel y fronton. El servidor valida los campos y restringe las operaciones de administracion al propietario autenticado de cada cancha.
+
+| Metodo | Endpoint | Acceso | Descripcion |
+|---|---|---|---|
+| GET | `/api/v1/courts` | Publico | Consultar canchas disponibles |
+| GET | `/api/v1/courts/mine` | Propietario | Consultar las canchas propias |
+| POST | `/api/v1/courts` | Propietario | Registrar una cancha |
+| PATCH | `/api/v1/courts/:id` | Propietario | Editar una cancha propia |
+| DELETE | `/api/v1/courts/:id` | Propietario | Eliminar una cancha propia |
+
+Las altas y cambios de ubicacion requieren direccion, latitud y longitud. El backend verifica que el punto corresponda al departamento de Cochabamba, Bolivia, mediante geocodificacion inversa de Nominatim; una ubicacion fuera del departamento se rechaza.
+
+La tabla `canchas` se crea y amplía mediante las migraciones incluidas en `prisma/migrations`. Para aplicar las migraciones pendientes en una base local, ejecuta `npx prisma migrate dev` desde `backend` y luego `npx prisma generate`.
+
+## Frontend de Canchas
+
+El frontend de propietarios documenta las rutas de consulta, alta y edicion en [frontend/README.md](frontend/README.md). Incluye mapa OpenStreetMap, busqueda por direccion, geolocalizacion, visualizacion de ubicaciones guardadas y eliminacion de canchas.

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, Trophy, UserRound } from "lucide-react";
+import { LogOut, MapPinned, Trophy, UserRound } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getHomeForRole } from "../utils/roles";
 
@@ -29,6 +29,15 @@ const Navbar = () => {
         <nav className="flex items-center gap-2 sm:gap-3">
           {isAuthenticated ? (
             <>
+              {user.rol === "PROPIETARIO" ? (
+                <Link
+                  to="/courts"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                >
+                  <MapPinned size={16} />
+                  Mis canchas
+                </Link>
+              ) : null}
               <Link
                 to={getHomeForRole(user.rol)}
                 className="hidden items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:flex"

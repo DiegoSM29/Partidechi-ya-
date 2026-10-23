@@ -1,9 +1,9 @@
 // Campo de formulario con etiqueta y mensaje de validacion
-export const Campo = ({ etiqueta, error, children }) => (
+export const Campo = ({ etiqueta, error, id, children }) => (
   <div>
-    <label className="mb-1 block text-sm font-medium text-slate-700">{etiqueta}</label>
+    <label htmlFor={id} className="mb-1 block text-sm font-medium text-slate-700">{etiqueta}</label>
     {children}
-    {error ? <p className="mt-1 text-xs font-medium text-red-600">{error}</p> : null}
+    {error ? <p id={id ? `${id}-error` : undefined} className="mt-1 text-xs font-medium text-red-600">{error}</p> : null}
   </div>
 );
 
