@@ -10,11 +10,11 @@ Todos los endpoints operan bajo el prefijo base `/api/v1`.
 * PATCH `/api/v1/users/me` - Actualizar perfil propio
 
 ## Canchas y Disponibilidad
-* GET `/api/v1/courts` - Consultar y filtrar canchas
-* GET `/api/v1/courts/:id` - Consultar una cancha especifica
-* POST `/api/v1/courts` - Registrar una cancha (Propietario)
-* PATCH `/api/v1/courts/:id` - Actualizar una cancha
-* DELETE `/api/v1/courts/:id` - Desactivar una cancha
+* GET `/api/v1/courts` - Consultar canchas disponibles
+* GET `/api/v1/courts/mine` - Consultar las canchas propias (Propietario)
+* POST `/api/v1/courts` - Registrar una cancha con `ubicacion`, `latitud` y `longitud` dentro del departamento de Cochabamba, Bolivia (Propietario)
+* PATCH `/api/v1/courts/:id` - Actualizar una cancha propia y validar sus coordenadas (Propietario)
+* DELETE `/api/v1/courts/:id` - Eliminar una cancha propia (Propietario)
 * GET `/api/v1/courts/:id/availability` - Consultar disponibilidad horaria
 * POST `/api/v1/courts/:id/blocks` - Registrar bloqueo por mantenimiento
 

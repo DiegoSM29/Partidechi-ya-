@@ -6,6 +6,7 @@
 * **Estilos**: Tailwind CSS v4
 * **Enrutamiento**: React Router v7
 * **Cliente HTTP**: Axios
+* **Mapas**: Leaflet + OpenStreetMap (sin clave de API)
 
 ## Estructura de Directorios (`src/`)
 * `src/api/`: Cliente centralizado de Axios, interceptores de peticion/respuesta y manejo de errores.

@@ -20,8 +20,25 @@ model Usuario {
   telefono       String?          @db.VarChar(30)
   estado         EstadoUsuario    @default(ACTIVO)
   fecha_registro DateTime         @default(now())
+  canchas        Cancha[]
 
   @@map("usuarios")
+}
+
+model Cancha {
+  id_cancha      Int      @id @default(autoincrement())
+  id_propietario Int
+  nombre         String   @db.VarChar(100)
+  ubicacion      String   @db.VarChar(200)
+  latitud        Float?
+  longitud       Float?
+  deporte        String   @db.VarChar(80)
+  precio_hora    Float
+  fecha_registro DateTime @default(now())
+  propietario    Usuario  @relation(fields: [id_propietario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([id_propietario])
+  @@map("canchas")
 }
 
 /// Roles permitidos en el sistema: jugador, propietario, administrador

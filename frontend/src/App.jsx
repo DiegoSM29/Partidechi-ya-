@@ -8,6 +8,8 @@ import LoadingScreen from "./components/LoadingScreen";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
+import OwnerCourts from "./pages/OwnerCourts";
+import CourtForm from "./pages/CourtForm";
 import NotFound from "./pages/NotFound";
 
 // Raiz: envia al usuario a su destino segun sesion/rol
@@ -46,6 +48,30 @@ const App = () => (
           element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courts"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <OwnerCourts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courts/new"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <CourtForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courts/:id/edit"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <CourtForm />
             </ProtectedRoute>
           }
         />

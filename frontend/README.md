@@ -9,6 +9,7 @@ Cliente web de "Partidechi ya!" construido con **React + Vite + Tailwind CSS v4 
 * **Enrutamiento**: React Router v7
 * **HTTP**: Axios (cliente con interceptores)
 * **Iconos**: lucide-react
+* **Mapas**: Leaflet y teselas de OpenStreetMap, con busqueda y geocodificacion inversa de Nominatim
 
 ## Estructura de Carpetas
 ```
@@ -24,8 +25,9 @@ frontend/
     ├── utils/validators.js   → Validacion en cliente (correo, password >= 8, etc.)
     ├── utils/roles.js        → Mapeo rol -> vista principal y etiquetas/badges
     ├── components/           → ProtectedRoute, PublicOnlyRoute, Navbar, AuthLayout,
-    │                           Alert, Spinner, LoadingScreen, FormFields
-    └── pages/                → Login, Register, Profile, NotFound
+    │                           Alert, Spinner, LoadingScreen, FormFields,
+    │                           CourtLocationPicker, CourtLocationModal, CourtMapMarker
+    └── pages/                → Login, Register, Profile, OwnerCourts, CourtForm, NotFound
 ```
 
 ## Guia de Instalacion y Ejecucion
@@ -59,8 +61,29 @@ npm run dev        → http://localhost:5173
 | `/login` | Publica | Inicio de sesion (validacion cliente + backend) |
 | `/register` | Publica | Registro con selector de rol (Jugador/Propietario) |
 | `/profile` | Protegida | Perfil del usuario autenticado + cierre de sesion |
+| `/courts` | Propietario | Consulta, visualizacion del mapa y administracion de canchas propias |
+| `/courts/new` | Propietario | Registro de cancha |
+| `/courts/:id/edit` | Propietario | Edicion de cancha propia |
 | `/` | — | Redirige a `/login` o `/profile` segun sesion |
 | `*` | — | Pagina 404 |
+
+## Gestion de Canchas
+
+La vista **Mis canchas** muestra primero las canchas del propietario autenticado. Cada registro ofrece acciones para ver su ubicación en un modal, editarla o eliminarla con confirmación. La API aplica la misma restricción por propietario, independientemente de los controles de interfaz.
+
+El formulario registra nombre, ubicación, deporte y precio por hora. El deporte se selecciona entre Fútbol 5, Fútbol 8, Fútbol 11, Wally, Pádel y Frontón.
+
+### Ubicacion en el Mapa
+
+* El mapa se limita visualmente al departamento de Cochabamba, Bolivia. La selección de puntos se verifica por país y departamento antes de habilitar el guardado.
+* Se puede marcar una ubicación con un clic, buscar una dirección escrita o usar la ubicación actual del dispositivo.
+* Las direcciones encontradas se pueden editar manualmente. Si no hay una calle disponible, el formulario no inventa una dirección y permite escribirla.
+* Cada cancha guarda latitud y longitud además del texto de la dirección. El pin tiene forma de gota; al mover el mapa no cambia el zoom actual.
+* El modal de ubicación muestra el punto registrado y mantiene el botón de cierre fijo, independiente del desplazamiento del mapa.
+
+Los mapas y resultados de dirección usan OpenStreetMap y Nominatim, por lo que necesitan conexión a Internet. La geolocalización depende del permiso del navegador y normalmente requiere HTTPS; `localhost` se considera un origen seguro durante el desarrollo.
+
+Para que el guardado y la edición de coordenadas funcionen, aplica las migraciones pendientes desde `backend` con `npx prisma migrate dev` y genera el cliente con `npx prisma generate`.
 
 ## Flujo de Autenticacion
 1. El cliente guarda el JWT en `LocalStorage` (`partidechi_token`).
