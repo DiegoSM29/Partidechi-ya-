@@ -10,6 +10,7 @@ import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import OwnerCourts from "./pages/OwnerCourts";
 import CourtForm from "./pages/CourtForm";
+import CourtSchedule from "./pages/CourtSchedule";
 import NotFound from "./pages/NotFound";
 
 // Raiz: envia al usuario a su destino segun sesion/rol
@@ -72,6 +73,22 @@ const App = () => (
           element={
             <ProtectedRoute rol="PROPIETARIO">
               <CourtForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courts/:id/schedules"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <CourtSchedule />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courts/:id/horarios"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <CourtSchedule />
             </ProtectedRoute>
           }
         />

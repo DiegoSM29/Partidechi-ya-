@@ -198,7 +198,7 @@ const CourtForm = () => {
           </Campo>
           <Campo id="court-price" etiqueta="Precio por hora *" error={errores.precio_hora}>
             <div className={`flex overflow-hidden rounded-xl border focus-within:ring-2 focus-within:ring-emerald-500 ${errores.precio_hora ? "border-red-400" : "border-slate-300"}`}>
-              <span className="flex items-center border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">$</span>
+              <span className="flex items-center border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">Bs</span>
               <input required id="court-price" type="number" min="0" step="0.01" name="precio_hora" value={form.precio_hora} onChange={handleChange} placeholder="0.00" aria-invalid={Boolean(errores.precio_hora)} aria-describedby={errores.precio_hora ? "court-price-error" : undefined} className="w-full min-w-0 px-3.5 py-2.5 text-sm text-slate-900 outline-none" />
             </div>
           </Campo>

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, MapPinned, Plus, SquarePen, Trash2 } from "lucide-react";
+import { MapPin, MapPinned, Plus, SquarePen, Trash2, CalendarClock } from "lucide-react";
 import api, { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
@@ -94,6 +94,9 @@ const OwnerCourts = () => {
                     >
                       <MapPinned size={17} />
                     </button>
+                    <Link to={`/courts/${cancha.id_cancha}/schedules`} aria-label={`Configurar horarios de ${cancha.nombre}`} title="Horarios y disponibilidad" className="rounded-lg p-2.5 text-emerald-800 transition hover:bg-emerald-50">
+                      <CalendarClock size={17} />
+                    </Link>
                     <Link to={`/courts/${cancha.id_cancha}/edit`} aria-label={`Editar ${cancha.nombre}`} title="Editar cancha" className="rounded-lg p-2.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
                       <SquarePen size={17} />
                     </Link>

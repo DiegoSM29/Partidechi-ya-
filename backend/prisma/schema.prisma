@@ -11,34 +11,80 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario     Int              @id @default(autoincrement())
-  nombre         String           @db.VarChar(100)
-  apellido       String           @db.VarChar(100)
-  correo         String           @unique @db.VarChar(150)
-  password_hash  String           @db.VarChar(255)
-  rol            Rol              @default(JUGADOR)
-  telefono       String?          @db.VarChar(30)
-  estado         EstadoUsuario    @default(ACTIVO)
-  fecha_registro DateTime         @default(now())
+  id_usuario     Int           @id @default(autoincrement())
+  nombre         String        @db.VarChar(100)
+  apellido       String        @db.VarChar(100)
+  correo         String        @unique @db.VarChar(150)
+  password_hash  String        @db.VarChar(255)
+  rol            Rol           @default(JUGADOR)
+  telefono       String?       @db.VarChar(30)
+  estado         EstadoUsuario @default(ACTIVO)
+  fecha_registro DateTime      @default(now())
   canchas        Cancha[]
+  reservas       Reserva[]
 
   @@map("usuarios")
 }
 
 model Cancha {
-  id_cancha      Int      @id @default(autoincrement())
+  id_cancha      Int       @id @default(autoincrement())
   id_propietario Int
-  nombre         String   @db.VarChar(100)
-  ubicacion      String   @db.VarChar(200)
+  nombre         String    @db.VarChar(100)
+  ubicacion      String    @db.VarChar(200)
   latitud        Float?
   longitud       Float?
-  deporte        String   @db.VarChar(80)
+  deporte        String    @db.VarChar(80)
   precio_hora    Float
-  fecha_registro DateTime @default(now())
-  propietario    Usuario  @relation(fields: [id_propietario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  fecha_registro DateTime  @default(now())
+  propietario    Usuario   @relation(fields: [id_propietario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  horarios       Horario[]
+  reservas       Reserva[]
 
   @@index([id_propietario])
   @@map("canchas")
+}
+
+/// Franjas horarias semanales registradas como disponibles para una cancha.
+model Horario {
+  id_horario  Int           @id @default(autoincrement())
+  id_cancha   Int
+  dia_semana  Int
+  hora_inicio String        @db.VarChar(5)
+  hora_fin    String        @db.VarChar(5)
+  cancha      Cancha        @relation(fields: [id_cancha], references: [id_cancha], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([id_cancha, dia_semana])
+  @@map("horarios")
+}
+
+/// Reservas de una cancha. Las reservas pendientes y confirmadas ocupan la
+/// franja horaria y se excluyen de la disponibilidad publica.
+model Reserva {
+  id_reserva     Int           @id @default(autoincrement())
+  id_usuario     Int
+  id_cancha      Int
+  fecha          DateTime      @db.Date
+  hora_inicio    String        @db.VarChar(5)
+  hora_fin       String        @db.VarChar(5)
+  monto_total    Float
+  estado         EstadoReserva @default(PENDIENTE)
+  fecha_creacion DateTime      @default(now())
+  usuario        Usuario       @relation(fields: [id_usuario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  cancha         Cancha        @relation(fields: [id_cancha], references: [id_cancha], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([id_usuario])
+  @@index([id_cancha, fecha])
+  @@map("reservas")
+}
+
+/// Estados de una reserva. Las canceladas liberan la franja horaria.
+enum EstadoReserva {
+  PENDIENTE  @map("pendiente")
+  CONFIRMADA @map("confirmada")
+  CANCELADA  @map("cancelada")
+  COMPLETADA @map("completada")
+
+  @@map("estado_reserva")
 }
 
 /// Roles permitidos en el sistema: jugador, propietario, administrador

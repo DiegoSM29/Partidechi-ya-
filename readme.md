@@ -50,6 +50,7 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 * Autenticacion: /api/v1/auth/register, /api/v1/auth/login
 * Usuarios: /api/v1/users/me
 * Canchas: GET /api/v1/courts, GET /api/v1/courts/mine, POST /api/v1/courts, PATCH y DELETE /api/v1/courts/:id
+* Horarios: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability
 * Reservas: /api/v1/reservations, /api/v1/reservations/:id/confirm
 * Pagos: /api/v1/reservations/:id/payments, /api/v1/payments/:id/verify
 * Partidos Amistosos: /api/v1/matches, /api/v1/matches/:id/join
@@ -72,6 +73,24 @@ Los deportes permitidos son futbol 5, futbol 8, futbol 11, wally, padel y fronto
 Las altas y cambios de ubicacion requieren direccion, latitud y longitud. El backend verifica que el punto corresponda al departamento de Cochabamba, Bolivia, mediante geocodificacion inversa de Nominatim; una ubicacion fuera del departamento se rechaza.
 
 La tabla `canchas` se crea y amplía mediante las migraciones incluidas en `prisma/migrations`. Para aplicar las migraciones pendientes en una base local, ejecuta `npx prisma migrate dev` desde `backend` y luego `npx prisma generate`.
+
+## Horarios y Disponibilidad
+
+Cada propietario registra los intervalos semanales en los que sus canchas pueden reservarse. **Únicamente las franjas registradas son reservables**; las horas que no estén registradas no se ofrecen y no admiten reservas. Los días se numeran de `0` (domingo) a `6` (sábado) y las horas usan el formato `HH:mm` de 24 horas.
+
+| Metodo | Endpoint | Acceso | Descripcion |
+|---|---|---|---|
+| GET | `/api/v1/courts/:id/schedules` | Publico | Consultar los intervalos registrados como disponibles |
+| POST | `/api/v1/courts/:id/schedules` | Propietario | Registrar una o varias franjas de funcionamiento |
+| PUT | `/api/v1/courts/:id/schedules` | Propietario | Reemplazar el horario de funcionamiento semanal |
+| PATCH/PUT | `/api/v1/courts/:id/schedules/:scheduleId` | Propietario | Editar una franja |
+| DELETE | `/api/v1/courts/:id/schedules/:scheduleId` | Propietario | Eliminar una franja |
+| GET | `/api/v1/courts/:id/availability?fecha=YYYY-MM-DD` | Publico | Consultar turnos disponibles para una fecha |
+| POST | `/api/v1/reservations` | Autenticado | Solicitar una reserva compatible con los horarios |
+
+Los endpoints de horarios aceptan `/horarios` como alias en español. `POST /api/v1/reservations` recibe `id_cancha`, `fecha`, `hora_inicio` y `hora_fin`; rechaza solicitudes que no estén completamente cubiertas por algún intervalo registrado o que se superpongan con otra reserva activa.
+
+La consulta de disponibilidad genera turnos únicamente dentro de los intervalos registrados para ese día y descuenta las reservas pendientes/confirmadas. Si una cancha no tiene horario configurado para ese día, no ofrece turnos y no admite reservas.
 
 ## Frontend de Canchas
 
