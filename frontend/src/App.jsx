@@ -11,6 +11,8 @@ import Profile from "./pages/Profile";
 import OwnerCourts from "./pages/OwnerCourts";
 import CourtForm from "./pages/CourtForm";
 import CourtSchedule from "./pages/CourtSchedule";
+import CourtSearch from "./pages/CourtSearch";
+import CourtAvailability from "./pages/CourtAvailability";
 import NotFound from "./pages/NotFound";
 
 // Raiz: envia al usuario a su destino segun sesion/rol
@@ -89,6 +91,22 @@ const App = () => (
           element={
             <ProtectedRoute rol="PROPIETARIO">
               <CourtSchedule />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courts/search"
+          element={
+            <ProtectedRoute>
+              <CourtSearch />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courts/:id/availability"
+          element={
+            <ProtectedRoute>
+              <CourtAvailability />
             </ProtectedRoute>
           }
         />

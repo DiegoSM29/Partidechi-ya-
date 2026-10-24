@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, MapPinned, Trophy, UserRound } from "lucide-react";
+import { LogOut, MapPinned, Search, Trophy, UserRound } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getHomeForRole } from "../utils/roles";
 
@@ -29,6 +29,15 @@ const Navbar = () => {
         <nav className="flex items-center gap-2 sm:gap-3">
           {isAuthenticated ? (
             <>
+              {user.rol === "JUGADOR" ? (
+                <Link
+                  to="/courts/search"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                >
+                  <Search size={16} />
+                  Buscar canchas
+                </Link>
+              ) : null}
               {user.rol === "PROPIETARIO" ? (
                 <Link
                   to="/courts"

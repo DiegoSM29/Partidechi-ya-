@@ -8,6 +8,7 @@ const { authorize } = require("../middlewares/role.middleware");
 const router = Router();
 
 router.get("/", canchaController.listAll);
+router.get("/:id", canchaController.getById);
 router.get("/mine", authenticate, authorize("PROPIETARIO"), canchaController.listMine);
 router.post("/", authenticate, authorize("PROPIETARIO"), canchaController.create);
 router.patch("/:id", authenticate, authorize("PROPIETARIO"), canchaController.updateMine);
