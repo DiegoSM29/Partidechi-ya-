@@ -15,8 +15,12 @@ Todos los endpoints operan bajo el prefijo base `/api/v1`.
 * POST `/api/v1/courts` - Registrar una cancha con `ubicacion`, `latitud` y `longitud` dentro del departamento de Cochabamba, Bolivia (Propietario)
 * PATCH `/api/v1/courts/:id` - Actualizar una cancha propia y validar sus coordenadas (Propietario)
 * DELETE `/api/v1/courts/:id` - Eliminar una cancha propia (Propietario)
-* GET `/api/v1/courts/:id/availability` - Consultar disponibilidad horaria
-* POST `/api/v1/courts/:id/blocks` - Registrar bloqueo por mantenimiento
+* GET `/api/v1/courts/:id/schedules` - Consultar intervalos de funcionamiento registrados (alias `/horarios`)
+* POST `/api/v1/courts/:id/schedules` - Registrar horarios de funcionamiento (Propietario)
+* PUT `/api/v1/courts/:id/schedules` - Reemplazar el horario semanal de funcionamiento (Propietario)
+* PATCH `/api/v1/courts/:id/schedules/:scheduleId` - Editar una franja horaria (Propietario)
+* DELETE `/api/v1/courts/:id/schedules/:scheduleId` - Eliminar una franja horaria (Propietario)
+* GET `/api/v1/courts/:id/availability` - Consultar turnos dentro de horarios registrados, excluyendo reservas
 
 ## Reservas y Pagos
 * POST `/api/v1/reservations` - Solicitar reserva (con transaccion de disponibilidad)

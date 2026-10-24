@@ -52,8 +52,14 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | `POST` | `/api/v1/courts` | Propietario | Registrar una nueva cancha. |
 | `PATCH` | `/api/v1/courts/:id` | Propietario | Actualizar una cancha (solo el propietario autorizado). |
 | `DELETE` | `/api/v1/courts/:id` | Propietario / Admin | Desactivar una cancha cuando corresponda. |
-| `GET` | `/api/v1/courts/:id/availability` | No | Consultar la disponibilidad horaria combinando horarios, bloqueos y reservas. |
-| `POST` | `/api/v1/courts/:id/blocks` | Propietario | Registrar un bloqueo horario por mantenimiento o indisponibilidad. |
+| `GET` | `/api/v1/courts/:id/schedules` | No | Consultar intervalos de funcionamiento registrados (alias `/horarios`). |
+| `POST` | `/api/v1/courts/:id/schedules` | Propietario | Registrar una o varias franjas de funcionamiento. |
+| `PUT` | `/api/v1/courts/:id/schedules` | Propietario | Reemplazar el horario de funcionamiento semanal. |
+| `PATCH` | `/api/v1/courts/:id/schedules/:scheduleId` | Propietario | Editar una franja existente. |
+| `DELETE` | `/api/v1/courts/:id/schedules/:scheduleId` | Propietario | Eliminar una franja existente. |
+| `GET` | `/api/v1/courts/:id/availability` | No | Consultar turnos dentro de los horarios registrados, excluyendo reservas. |
+
+> **Regla de negocio:** los horarios usan días de `0` (domingo) a `6` (sábado) y horas `HH:mm`. Solo los intervalos registrados pueden reservarse; las horas no registradas no están disponibles. Una reserva debe quedar completamente dentro de un intervalo registrado y no puede superponerse con otra reserva pendiente o confirmada. Las reservas canceladas liberan la franja.
 
 ---
 

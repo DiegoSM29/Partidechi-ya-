@@ -9,6 +9,9 @@ const findByOwner = (id_propietario) =>
     orderBy: { fecha_registro: "desc" },
   });
 
+const findById = (id_cancha) =>
+  prisma.cancha.findUnique({ where: { id_cancha } });
+
 const create = (data) => prisma.cancha.create({ data });
 
 const findByOwnerAndId = (id_propietario, id_cancha) =>
@@ -29,6 +32,7 @@ const deleteByOwnerAndId = (id_propietario, id_cancha) =>
 module.exports = {
   findAll,
   findByOwner,
+  findById,
   create,
   findByOwnerAndId,
   updateByOwnerAndId,

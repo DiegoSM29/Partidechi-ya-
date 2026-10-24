@@ -64,6 +64,7 @@ npm run dev        → http://localhost:5173
 | `/courts` | Propietario | Consulta, visualizacion del mapa y administracion de canchas propias |
 | `/courts/new` | Propietario | Registro de cancha |
 | `/courts/:id/edit` | Propietario | Edicion de cancha propia |
+| `/courts/:id/schedules` | Propietario | Configuracion de horarios registrados y consulta de disponibilidad |
 | `/` | — | Redirige a `/login` o `/profile` segun sesion |
 | `*` | — | Pagina 404 |
 
@@ -84,6 +85,16 @@ El formulario registra nombre, ubicación, deporte y precio por hora. El deporte
 Los mapas y resultados de dirección usan OpenStreetMap y Nominatim, por lo que necesitan conexión a Internet. La geolocalización depende del permiso del navegador y normalmente requiere HTTPS; `localhost` se considera un origen seguro durante el desarrollo.
 
 Para que el guardado y la edición de coordenadas funcionen, aplica las migraciones pendientes desde `backend` con `npx prisma migrate dev` y genera el cliente con `npx prisma generate`.
+
+## Horarios y Disponibilidad
+
+Desde **Mis canchas**, el botón de calendario abre `/courts/:id/schedules`. La vista permite:
+
+* Registrar y eliminar franjas semanales de funcionamiento.
+* Las franjas no registradas no se ofrecen para reservar.
+* Consultar la disponibilidad resultante para una fecha, mostrando turnos disponibles y reservados.
+
+La API rechaza horarios solapados, reservas fuera de los intervalos registrados y reservas que choquen con otra reserva activa.
 
 ## Flujo de Autenticacion
 1. El cliente guarda el JWT en `LocalStorage` (`partidechi_token`).
