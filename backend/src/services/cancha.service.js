@@ -132,7 +132,7 @@ const parseId = (value) => {
   return id;
 };
 
-const listAll = () => canchaRepository.findAll();
+const listAll = (filters = {}) => canchaRepository.findAll(filters);
 
 const listMine = (id_propietario) => canchaRepository.findByOwner(id_propietario);
 

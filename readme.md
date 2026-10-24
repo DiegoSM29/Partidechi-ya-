@@ -92,6 +92,17 @@ Los endpoints de horarios aceptan `/horarios` como alias en español. `POST /api
 
 La consulta de disponibilidad genera turnos únicamente dentro de los intervalos registrados para ese día y descuenta las reservas pendientes/confirmadas. Si una cancha no tiene horario configurado para ese día, no ofrece turnos y no admite reservas.
 
+## Búsqueda de canchas (HU - Jugador)
+
+Se habilitó la búsqueda de canchas para jugadores con filtros por fecha, precio, ubicación y deporte. Los jugadores pueden ver la ubicación de las canchas en un modal desde el listado o desde la vista de disponibilidad:
+
+- **Backend**
+  - `GET /api/v1/courts` ahora acepta filtros: `deporte`/`sport`, `ubicacion`/`location`/`search`, `precio_max`/`max_price`. Al filtrar por `fecha` (YYYY-MM-DD), solo se muestran canchas que tengan al menos un horario registrado para ese día de la semana. Los resultados incluyen horarios asociados.
+  - `GET /api/v1/courts/:id` agregado para consultar el detalle de una cancha.
+- **Frontend (Jugador)**
+  - Nueva vista `Canchas` / búsqueda (`/courts/search`) con filtros (deporte, ubicación, precio máximo y fecha), listado de resultados, mensaje "No existen resultados" cuando no hay coincidencias. Al buscar con fecha seleccionada, solo aparecen canchas con horarios ese día.
+  - Nueva vista de disponibilidad (`/courts/:id/availability`) que muestra horarios disponibles por fecha (basado en horarios registrados y reservas existentes), precios y características de la cancha. Si se llega con `?fecha=...` desde el buscador, carga automáticamente los horarios de ese día manteniendo el calendario para cambiar de fecha.
+
 ## Frontend de Canchas
 
 El frontend de propietarios documenta las rutas de consulta, alta y edicion en [frontend/README.md](frontend/README.md). Incluye mapa OpenStreetMap, busqueda por direccion, geolocalizacion, visualizacion de ubicaciones guardadas y eliminacion de canchas.
