@@ -17,7 +17,14 @@ const {
 } = require("../utils/scheduleTime");
 
 const parseId = (value, entidad = "cancha") => {
-  const id = Number(value);
+  if (value === undefined || value === null) {
+    throw new ApiError(400, `El identificador de la ${entidad} no es valido`);
+  }
+  const str = String(value).trim();
+  if (!/^\d+$/.test(str)) {
+    throw new ApiError(400, `El identificador de la ${entidad} no es valido`);
+  }
+  const id = Number(str);
   if (!Number.isInteger(id) || id < 1) {
     throw new ApiError(400, `El identificador de la ${entidad} no es valido`);
   }

@@ -53,12 +53,12 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 * Horarios: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability
 * Reservas: POST /api/v1/reservations, GET /api/v1/reservations, GET /api/v1/reservations/:id, POST /api/v1/reservations/:id/cancel, POST /api/v1/reservations/:id/confirm
 * Pagos: GET /api/v1/reservations/:id/payments/amount, POST /api/v1/reservations/:id/payments/paypal/simulate, POST /api/v1/reservations/:id/payments, GET /api/v1/reservations/:id/payments, POST /api/v1/payments/:id/verify
-* Partidos Amistosos: /api/v1/matches, /api/v1/matches/:id/join
+* Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants
 * Administracion: /api/v1/admin/users, /api/v1/admin/statistics
 
 ## Gestion de Canchas
 
-Los propietarios pueden registrar, consultar, editar y eliminar sus propias canchas. Cada cancha guarda nombre, ubicacion, latitud, longitud, deporte, precio por hora e identificador del propietario.
+Los propietarios pueden registrar, consultar, editar y eliminar sus propias canchas. Cada cancha guarda nombre, ubicacion, latitud, longitud, deporte, precio por hora, número máximo de jugadores e identificador del propietario. Las rutas se configuran correctamente para evitar conflictos entre `/mine` y `/:id`.
 
 Los deportes permitidos son futbol 5, futbol 8, futbol 11, wally, padel y fronton. El servidor valida los campos y restringe las operaciones de administracion al propietario autenticado de cada cancha.
 
@@ -144,6 +144,28 @@ Pasos:
 5. Usa cuentas de prueba (Sandbox test accounts) en developer.paypal.com para simular pagos sin costo real
 6. Al pulsar "Pagar con PayPal (Sandbox)", se redirige a PayPal Sandbox para simular el pago. Tras completar/cancelar, regresa al sitio. El pago queda registrado en estado pendiente y el propietario debe verificarlo para confirmar la reserva. La cancha se reserva solo tras la confirmación del pago.
 7. Para reservar múltiples horas, selecciona hora de inicio y hora de fin directamente (carrito/selectivo), se genera un solo pago por todo el bloque.
+
+## Partidos Amistosos (HU - Jugador)
+
+Se implementó la creación y gestión de partidos amistosos asociados a reservas confirmadas:
+
+- **Backend**
+  - Modelo `Partido` y `Participante` agregados al esquema Prisma con sus respectivas relaciones y estados. Migraciones `partidos_participantes` y `cancha_jugadores_maximos` creadas y aplicadas.
+  - Se agregó `jugadores_maximos` a `canchas` (definido por el propietario al registrar/editar la cancha). El número máximo de jugadores del partido no puede superar el límite de la cancha.
+  - `POST /api/v1/matches` crea un partido asociado obligatoriamente a una `reserva` válida y confirmada. El deporte se toma de la cancha reservada (no editable manualmente). El organizador se agrega automáticamente como participante aceptado.
+  - `GET /api/v1/matches` lista partidos públicos publicados. `GET /api/v1/matches/:id` consulta el detalle con participantes. `PATCH /api/v1/matches/:id` permite al organizador/administrador actualizar información autorizada.
+  - `POST /api/v1/matches/:id/join` permite unirse si hay plazas disponibles; el sistema controla el número máximo de jugadores (`jugadores_maximos`).
+  - `POST /api/v1/matches/:id/leave` permite abandonar el partido (el organizador no puede abandonar).
+  - `GET /api/v1/matches/:id/participants` consulta la lista de participantes.
+  - El partido indica `nombre`, `deporte`, `fecha_hora`, `jugadores_maximos`, `descripcion`, `estado` y está asociado a una reserva confirmada cuando requiere cancha.
+
+- **Frontend (Jugador/Propietario)**
+  - Nuevas rutas `/matches`, `/matches/create`, `/matches/new`, `/matches/:id`.
+  - Listado de partidos publicados con información de fecha, hora, cancha/ubicación y plazas.
+  - Creación de partido desde reservas (`/matches/create`), mostrando todas las reservas del usuario. El deporte se obtiene automáticamente de la cancha reservada (campo de solo lectura). El número máximo de jugadores debe respetar el límite configurado en la cancha.
+  - El propietario puede definir `jugadores_maximos` al registrar/editar su cancha.
+  - Vista de detalle del partido con lista de participantes, control de plazas, opción para unirse o abandonar.
+  - Corrección en búsqueda de canchas: el filtro por precio máximo filtra correctamente mostrando canchas con precio <= precio máximo buscado.
 
 ## Frontend de Canchas
 

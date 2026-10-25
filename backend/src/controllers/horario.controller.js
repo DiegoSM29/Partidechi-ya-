@@ -3,7 +3,7 @@ const horarioService = require("../services/horario.service");
 const asyncHandler = require("../utils/asyncHandler");
 
 const listSchedules = asyncHandler(async (req, res) => {
-  const { cancha, horarios } = await horarioService.listSchedules(req.params.id);
+  const { cancha, horarios } = await horarioService.listSchedules(req.params.id || req.params.canchaId || req.params.id_cancha);
   res.status(200).json({
     success: true,
     message: "Horarios consultados correctamente",
@@ -14,7 +14,7 @@ const listSchedules = asyncHandler(async (req, res) => {
 const createSchedules = asyncHandler(async (req, res) => {
   const { cancha, horarios } = await horarioService.createSchedules(
     req.user.id_usuario,
-    req.params.id,
+    req.params.id || req.params.canchaId || req.params.id_cancha,
     req.body
   );
   res.status(201).json({
@@ -27,7 +27,7 @@ const createSchedules = asyncHandler(async (req, res) => {
 const replaceSchedules = asyncHandler(async (req, res) => {
   const { cancha, horarios } = await horarioService.replaceSchedules(
     req.user.id_usuario,
-    req.params.id,
+    req.params.id || req.params.canchaId || req.params.id_cancha,
     req.body
   );
   res.status(200).json({
