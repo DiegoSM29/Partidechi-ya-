@@ -88,6 +88,9 @@ const create = async (usuario, input = {}) => {
   if (!cancha) throw new ApiError(404, "Cancha no encontrada");
 
   const duracionHoras = (timeToMinutes(hora_fin) - timeToMinutes(hora_inicio)) / 60;
+  if (duracionHoras <= 0) {
+    throw new ApiError(400, "La duración de la reserva debe ser mayor a cero");
+  }
   const monto_total =
     Math.round(duracionHoras * Number(cancha.precio_hora) * 100) / 100;
 
@@ -95,10 +98,24 @@ const create = async (usuario, input = {}) => {
   try {
     reserva = await prisma.$transaction(
       async (tx) => {
+        // Validar que esté cubierto por horario de atención
         await assertCourtIsBookable(
           { id_cancha, fechaInfo, hora_inicio, hora_fin },
           tx
         );
+        // Verificar que no haya reserva activa (pendiente o confirmada) solapante
+        const solapantesActivas = await tx.reserva.findMany({
+          where: {
+            id_cancha,
+            fecha: fechaInfo.fecha,
+            estado: { in: ["PENDIENTE", "CONFIRMADA"] },
+            hora_inicio: { lt: hora_fin },
+            hora_fin: { gt: hora_inicio },
+          },
+        });
+        if (solapantesActivas.length > 0) {
+          throw new ApiError(400, "La cancha ya tiene una reserva en el horario solicitado");
+        }
         return reservaRepository.create(
           {
             id_usuario: usuario.id_usuario,
@@ -168,4 +185,58 @@ const cancel = async (usuario, rawId) => {
   return reservaRepository.updateEstado(id_reserva, "CANCELADA");
 };
 
-module.exports = { create, list, getById, cancel };
+const confirm = async (usuario, rawId) => {
+  const id_reserva = parseId(rawId);
+  const reserva = await reservaRepository.findById(id_reserva);
+  if (!reserva) throw new ApiError(404, "Reserva no encontrada");
+  assertCanAccess(usuario, reserva);
+
+  if (usuario.rol !== "PROPIETARIO" && usuario.rol !== "ADMINISTRADOR") {
+    throw new ApiError(403, "Solo el propietario o administrador puede confirmar la reserva");
+  }
+  if (usuario.rol === "PROPIETARIO" && reserva.cancha?.id_propietario !== usuario.id_usuario) {
+    throw new ApiError(403, "No tiene permisos para confirmar esta reserva");
+  }
+
+  if (reserva.estado === "CANCELADA") {
+    throw new ApiError(400, "No se puede confirmar una reserva cancelada");
+  }
+  if (reserva.estado === "CONFIRMADA") {
+    throw new ApiError(400, "La reserva ya se encuentra confirmada");
+  }
+  if (reserva.estado === "COMPLETADA") {
+    throw new ApiError(400, "No se puede confirmar una reserva completada");
+  }
+
+  // Verificar que exista un pago verificado/aprobado para el importe exigido
+  const pagoAprobado = await prisma.pago.findFirst({
+    where: {
+      id_reserva,
+      estado: "APROBADO",
+    },
+    orderBy: { fecha_verificacion: "desc" },
+  });
+  if (!pagoAprobado) {
+    throw new ApiError(400, "La reserva solo se confirma después de verificar el pago exigido");
+  }
+
+  // Validar disponibilidad nuevamente (evitar confirmaciones incompatibles)
+  const solapantes = await prisma.reserva.findMany({
+    where: {
+      id_cancha: reserva.id_cancha,
+      fecha: reserva.fecha,
+      estado: "CONFIRMADA",
+      NOT: { id_reserva },
+      hora_inicio: { lt: reserva.hora_fin },
+      hora_fin: { gt: reserva.hora_inicio },
+    },
+  });
+  if (solapantes.length > 0) {
+    throw new ApiError(400, "No se puede confirmar la reserva por conflicto con otra reserva confirmada");
+  }
+
+  const reservaActualizada = await reservaRepository.updateEstado(id_reserva, "CONFIRMADA");
+  return reservaRepository.findById(id_reserva);
+};
+
+module.exports = { create, list, getById, cancel, confirm };

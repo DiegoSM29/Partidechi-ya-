@@ -13,6 +13,8 @@ import CourtForm from "./pages/CourtForm";
 import CourtSchedule from "./pages/CourtSchedule";
 import CourtSearch from "./pages/CourtSearch";
 import CourtAvailability from "./pages/CourtAvailability";
+import ReservationCreate from "./pages/ReservationCreate";
+import ReservationPay from "./pages/ReservationPay";
 import NotFound from "./pages/NotFound";
 
 // Raiz: envia al usuario a su destino segun sesion/rol
@@ -107,6 +109,22 @@ const App = () => (
           element={
             <ProtectedRoute>
               <CourtAvailability />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reservations/new"
+          element={
+            <ProtectedRoute>
+              <ReservationCreate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reservations/:id/pay"
+          element={
+            <ProtectedRoute>
+              <ReservationPay />
             </ProtectedRoute>
           }
         />

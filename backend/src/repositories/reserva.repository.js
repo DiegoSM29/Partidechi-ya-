@@ -11,7 +11,7 @@ const CANCHA_SELECT = {
 
 const findByCourtAndDate = (id_cancha, fecha, client = prisma) =>
   client.reserva.findMany({
-    where: { id_cancha, fecha, estado: { not: "CANCELADA" } },
+    where: { id_cancha, fecha, estado: { in: ["CONFIRMADA", "PENDIENTE"] } },
     orderBy: [{ hora_inicio: "asc" }, { id_reserva: "asc" }],
     select: {
       id_reserva: true,
@@ -21,13 +21,13 @@ const findByCourtAndDate = (id_cancha, fecha, client = prisma) =>
     },
   });
 
-// Reservas activas de una cancha en una fecha que chocan con [hora_inicio, hora_fin).
+// Reservas que bloquean la cancha (pendientes por pagar o confirmadas)
 const findOverlapping = (id_cancha, fecha, hora_inicio, hora_fin, client = prisma) =>
   client.reserva.findMany({
     where: {
       id_cancha,
       fecha,
-      estado: { not: "CANCELADA" },
+      estado: { in: ["PENDIENTE", "CONFIRMADA"] },
       hora_inicio: { lt: hora_fin },
       hora_fin: { gt: hora_inicio },
     },
