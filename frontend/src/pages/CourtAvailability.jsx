@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Calendar, Clock, MapPin, MapPinned } from "lucide-react";
 import api, { getApiError } from "../api/client";
 import Alert from "../components/Alert";
@@ -9,6 +9,7 @@ const CourtLocationModal = lazy(() => import("../components/CourtLocationModal")
 
 const CourtAvailability = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const fechaParam = searchParams.get("fecha") || searchParams.get("date") || "";
 
@@ -146,35 +147,97 @@ const CourtAvailability = () => {
           </div>
 
           {Array.isArray(disponibilidad?.slots) && disponibilidad.slots.length > 0 ? (
-            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {disponibilidad.slots.map((slot, index) => (
-                <div
-                  key={`${slot.hora_inicio}-${index}`}
-                  className={`flex items-center justify-between rounded-lg border px-4 py-3 ${
-                    slot.disponible
-                      ? "border-emerald-200 bg-emerald-50"
-                      : "border-slate-200 bg-slate-50 opacity-60"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Clock size={16} className={slot.disponible ? "text-emerald-700" : "text-slate-400"} />
-                    <span
-                      className={`text-sm font-medium ${
-                        slot.disponible ? "text-emerald-900" : "text-slate-500"
-                      }`}
-                    >
-                      {slot.hora_inicio} - {slot.hora_fin}
-                    </span>
-                  </div>
-                  <span
-                    className={`text-xs font-semibold ${
-                      slot.disponible ? "text-emerald-700" : "text-slate-500"
-                    }`}
-                  >
-                    {slot.disponible ? "Disponible" : "Reservado"}
-                  </span>
+            <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+              <div>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  {disponibilidad.slots.map((slot, index) => {
+                    const seleccionado = Array.isArray(window.__cartSlots) && window.__cartSlots.some((s) => s.hora_inicio === slot.hora_inicio && s.hora_fin === slot.hora_fin);
+                    return (
+                      <button
+                        key={`${slot.hora_inicio}-${index}`}
+                        type="button"
+                        disabled={!slot.disponible}
+                        onClick={() => {
+                          if (!slot.disponible) return;
+                          window.__cartSlots = Array.isArray(window.__cartSlots) ? window.__cartSlots : [];
+                          const existe = window.__cartSlots.some((s) => s.hora_inicio === slot.hora_inicio && s.hora_fin === slot.hora_fin);
+                          if (existe) {
+                            window.__cartSlots = window.__cartSlots.filter((s) => !(s.hora_inicio === slot.hora_inicio && s.hora_fin === slot.hora_fin));
+                          } else {
+                            window.__cartSlots.push({ hora_inicio: slot.hora_inicio, hora_fin: slot.hora_fin });
+                          }
+                          setDisponibilidad({ ...disponibilidad });
+                        }}
+                        className={`flex items-center justify-between rounded-lg border px-4 py-3 text-left transition ${
+                          !slot.disponible
+                            ? "border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed"
+                            : seleccionado
+                            ? "border-emerald-700 bg-emerald-100"
+                            : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Clock size={16} className={slot.disponible ? "text-emerald-700" : "text-slate-400"} />
+                          <span
+                            className={`text-sm font-medium ${
+                              slot.disponible ? "text-emerald-900" : "text-slate-500"
+                            }`}
+                          >
+                            {slot.hora_inicio} - {slot.hora_fin}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-xs font-semibold ${
+                            slot.disponible ? "text-emerald-700" : "text-slate-500"
+                          }`}
+                        >
+                          {slot.disponible ? (seleccionado ? "Seleccionado" : "Seleccionar") : "No disponible"}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              ))}
+              </div>
+              <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm h-fit">
+                <p className="text-sm font-semibold text-slate-900">Horarios seleccionados</p>
+                <div className="mt-3 space-y-2">
+                  {(Array.isArray(window.__cartSlots) ? window.__cartSlots : []).length === 0 ? (
+                    <p className="text-xs text-slate-500">Selecciona uno o varios horarios del listado.</p>
+                  ) : (
+                    (window.__cartSlots || []).map((slot, idx) => (
+                      <div key={idx} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                        <span>{slot.hora_inicio} - {slot.hora_fin}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={(Array.isArray(window.__cartSlots) ? window.__cartSlots : []).length === 0}
+                  onClick={() => {
+                    const carrito = Array.isArray(window.__cartSlots) ? window.__cartSlots : [];
+                    if (carrito.length === 0) return;
+                    const hora_inicio = carrito[0].hora_inicio;
+                    const hora_fin = carrito[carrito.length - 1].hora_fin;
+                    // Ordenar por hora
+                    const ordenados = [...carrito].sort((a,b) => a.hora_inicio.localeCompare(b.hora_inicio));
+                    navigate("/reservations/new", {
+                      state: {
+                        id_cancha: id,
+                        cancha: cancha || disponibilidad?.cancha,
+                        fecha: fecha || disponibilidad?.fecha,
+                        hora_inicio: ordenados[0].hora_inicio,
+                        hora_fin: ordenados[ordenados.length - 1].hora_fin,
+                        precio_hora: cancha?.precio_hora || disponibilidad?.cancha?.precio_hora,
+                        cartSlots: ordenados,
+                      },
+                    });
+                  }}
+                  className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
+                >
+                  Empezar a pagar
+                </button>
+              </aside>
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-slate-300 px-5 py-12 text-center">
@@ -185,7 +248,7 @@ const CourtAvailability = () => {
               <p className="mt-1 text-sm text-slate-500">
                 {disponibilidad?.horarios?.length === 0
                   ? "La cancha no tiene horarios configurados para este día. Solo las franjas registradas son reservables."
-                  : "Todos los turnos de este día ya se encuentran reservados."}
+                  : "Todos los turnos de este día ya se encuentran confirmados/reservados o no hay disponibilidad."}
               </p>
             </div>
           )}

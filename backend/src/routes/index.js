@@ -3,6 +3,7 @@ const authRoutes = require("./auth.routes");
 const userRoutes = require("./user.routes");
 const courtRoutes = require("./court.routes");
 const reservationRoutes = require("./reservation.routes");
+const paymentRoutes = require("./payment.routes");
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/courts", courtRoutes);
 router.use("/reservations", reservationRoutes);
+router.use("/payments", paymentRoutes);
 
 module.exports = router;

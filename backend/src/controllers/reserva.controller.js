@@ -41,4 +41,13 @@ const cancel = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { create, list, getById, cancel };
+const confirm = asyncHandler(async (req, res) => {
+  const reserva = await reservaService.confirm(req.user, req.params.id);
+  res.status(200).json({
+    success: true,
+    message: "Reserva confirmada correctamente",
+    data: { reserva },
+  });
+});
+
+module.exports = { create, list, getById, cancel, confirm };

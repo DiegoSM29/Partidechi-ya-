@@ -11,17 +11,18 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario     Int           @id @default(autoincrement())
-  nombre         String        @db.VarChar(100)
-  apellido       String        @db.VarChar(100)
-  correo         String        @unique @db.VarChar(150)
-  password_hash  String        @db.VarChar(255)
-  rol            Rol           @default(JUGADOR)
-  telefono       String?       @db.VarChar(30)
-  estado         EstadoUsuario @default(ACTIVO)
-  fecha_registro DateTime      @default(now())
-  canchas        Cancha[]
-  reservas       Reserva[]
+  id_usuario      Int           @id @default(autoincrement())
+  nombre          String        @db.VarChar(100)
+  apellido        String        @db.VarChar(100)
+  correo          String        @unique @db.VarChar(150)
+  password_hash   String        @db.VarChar(255)
+  rol             Rol           @default(JUGADOR)
+  telefono        String?       @db.VarChar(30)
+  estado          EstadoUsuario @default(ACTIVO)
+  fecha_registro  DateTime      @default(now())
+  canchas         Cancha[]
+  reservas        Reserva[]
+  pagosVerificados Pago[]       @relation("PagosVerificados")
 
   @@map("usuarios")
 }
@@ -71,10 +72,40 @@ model Reserva {
   fecha_creacion DateTime      @default(now())
   usuario        Usuario       @relation(fields: [id_usuario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
   cancha         Cancha        @relation(fields: [id_cancha], references: [id_cancha], onDelete: Cascade, onUpdate: Cascade)
+  pagos          Pago[]
 
   @@index([id_usuario])
   @@index([id_cancha, fecha])
   @@map("reservas")
+}
+
+/// Pagos asociados a una reserva.
+model Pago {
+  id_pago           Int         @id @default(autoincrement())
+  id_reserva        Int
+  monto             Float
+  metodo_pago       String      @db.VarChar(40)
+  referencia        String?     @db.VarChar(150)
+  comprobante_url   String?     @db.VarChar(500)
+  estado            EstadoPago  @default(PENDIENTE)
+  verificado_por    Int?
+  fecha_pago        DateTime    @default(now())
+  fecha_verificacion DateTime?
+  reserva           Reserva     @relation(fields: [id_reserva], references: [id_reserva], onDelete: Cascade, onUpdate: Cascade)
+  verificador       Usuario?    @relation("PagosVerificados", fields: [verificado_por], references: [id_usuario], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([id_reserva])
+  @@map("pagos")
+}
+
+/// Estados de un pago.
+enum EstadoPago {
+  PENDIENTE  @map("pendiente")
+  APROBADO   @map("aprobado")
+  RECHAZADO  @map("rechazado")
+  REEMBOLSADO @map("reembolsado")
+
+  @@map("estado_pago")
 }
 
 /// Estados de una reserva. Las canceladas liberan la franja horaria.

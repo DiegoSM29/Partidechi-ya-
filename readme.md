@@ -51,8 +51,8 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 * Usuarios: /api/v1/users/me
 * Canchas: GET /api/v1/courts, GET /api/v1/courts/mine, POST /api/v1/courts, PATCH y DELETE /api/v1/courts/:id
 * Horarios: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability
-* Reservas: /api/v1/reservations, /api/v1/reservations/:id/confirm
-* Pagos: /api/v1/reservations/:id/payments, /api/v1/payments/:id/verify
+* Reservas: POST /api/v1/reservations, GET /api/v1/reservations, GET /api/v1/reservations/:id, POST /api/v1/reservations/:id/cancel, POST /api/v1/reservations/:id/confirm
+* Pagos: GET /api/v1/reservations/:id/payments/amount, POST /api/v1/reservations/:id/payments/paypal/simulate, POST /api/v1/reservations/:id/payments, GET /api/v1/reservations/:id/payments, POST /api/v1/payments/:id/verify
 * Partidos Amistosos: /api/v1/matches, /api/v1/matches/:id/join
 * Administracion: /api/v1/admin/users, /api/v1/admin/statistics
 
@@ -101,7 +101,49 @@ Se habilitó la búsqueda de canchas para jugadores con filtros por fecha, preci
   - `GET /api/v1/courts/:id` agregado para consultar el detalle de una cancha.
 - **Frontend (Jugador)**
   - Nueva vista `Canchas` / búsqueda (`/courts/search`) con filtros (deporte, ubicación, precio máximo y fecha), listado de resultados, mensaje "No existen resultados" cuando no hay coincidencias. Al buscar con fecha seleccionada, solo aparecen canchas con horarios ese día.
-  - Nueva vista de disponibilidad (`/courts/:id/availability`) que muestra horarios disponibles por fecha (basado en horarios registrados y reservas existentes), precios y características de la cancha. Si se llega con `?fecha=...` desde el buscador, carga automáticamente los horarios de ese día manteniendo el calendario para cambiar de fecha.
+  - Nueva vista de disponibilidad (`/courts/:id/availability`) que muestra horarios disponibles por fecha (basado en horarios registrados y reservas existentes), precios y características de la cancha. Si se llega con `?fecha=...` desde el buscador, carga automáticamente los horarios de ese día manteniendo el calendario para cambiar de fecha. Los turnos disponibles permiten reservar directamente.
+
+## Reserva y Pago de Cancha (HU - Jugador/Propietario)
+
+Se implementó el flujo completo para reservar una cancha y registrar el pago correspondiente:
+
+- **Backend**
+  - Modelo `Pago` agregado al esquema Prisma con estados `pendiente`, `aprobado`, `rechazado`, `reembolsado`. Migración creada y aplicada.
+  - `POST /api/v1/reservations` crea la reserva (estado `PENDIENTE`) validando disponibilidad. Reservas pendientes o confirmadas bloquean el horario.
+  - `GET /api/v1/reservations/:id/payments/amount` muestra el importe a pagar (un solo pago por todas las horas seleccionadas).
+  - `POST /api/v1/reservations/:id/payments/paypal/simulate` crea orden de PayPal Sandbox y devuelve URL de aprobación para redirigir al usuario.
+  - `POST /api/v1/payments/:id/verify` verifica el pago (Propietario/Administrador) y confirma la reserva si corresponde.
+- **Frontend**
+  - Nueva ruta `/reservations/new` para solicitar reserva.
+  - Nueva ruta `/reservations/:id/pay` redirige a PayPal Sandbox. Al volver con `?paypal=success` se muestra "Pago completado" con botón Volver.
+  - En disponibilidad, se pueden seleccionar múltiples horarios (carrito) y pulsar "Empezar a pagar" para un solo pago. Los horarios ya reservados aparecen como "No disponible".
+
+### Credenciales PayPal Sandbox (Desarrollador)
+Para usar PayPal Sandbox con tu cuenta de desarrollador:
+
+**Backend (`backend/.env`)**:
+```env
+PAYPAL_MODE=sandbox
+PAYPAL_CLIENT_ID=TU_CLIENT_ID_DE_TU_APP_SANDBOX
+PAYPAL_CLIENT_SECRET=TU_CLIENT_SECRET_DE_TU_APP_SANDBOX
+PAYPAL_WEBHOOK_ID=TU_WEBHOOK_ID_OPCIONAL
+FRONTEND_URL=http://localhost:5173
+```
+
+**Frontend (`frontend/.env`)**:
+```env
+VITE_API_URL=http://localhost:4000/api/v1
+VITE_PAYPAL_CLIENT_ID=TU_CLIENT_ID_DE_TU_APP_SANDBOX
+```
+
+Pasos:
+1. Ve a [developer.paypal.com](https://developer.paypal.com) → Inicia sesión con tu cuenta de desarrollador
+2. Ve a "Apps & Credentials" → Selecciona "Sandbox"
+3. Crea una app o usa una existente → Copia `Client ID` y `Secret`
+4. Pega `PAYPAL_CLIENT_ID` y `PAYPAL_CLIENT_SECRET` en `backend/.env`. También puedes poner el `Client ID` en `frontend/.env`
+5. Usa cuentas de prueba (Sandbox test accounts) en developer.paypal.com para simular pagos sin costo real
+6. Al pulsar "Pagar con PayPal (Sandbox)", se redirige a PayPal Sandbox para simular el pago. Tras completar/cancelar, regresa al sitio. El pago queda registrado en estado pendiente y el propietario debe verificarlo para confirmar la reserva. La cancha se reserva solo tras la confirmación del pago.
+7. Para reservar múltiples horas, selecciona hora de inicio y hora de fin directamente (carrito/selectivo), se genera un solo pago por todo el bloque.
 
 ## Frontend de Canchas
 
