@@ -10,6 +10,33 @@ const CANCHA_SELECT = {
   id_propietario: true,
 };
 
+const USUARIO_SELECT = {
+  id_usuario: true,
+  nombre: true,
+  apellido: true,
+  correo: true,
+  telefono: true,
+};
+
+const PAGO_SELECT = {
+  id_pago: true,
+  monto: true,
+  metodo_pago: true,
+  referencia: true,
+  comprobante_url: true,
+  estado: true,
+  verificado_por: true,
+  fecha_pago: true,
+  fecha_verificacion: true,
+};
+
+const RESERVA_INCLUDE = {
+  cancha: { select: CANCHA_SELECT },
+  usuario: { select: USUARIO_SELECT },
+  pagos: { orderBy: { fecha_pago: "desc" }, select: PAGO_SELECT },
+  partido: { select: { id_partido: true, nombre: true, estado: true } },
+};
+
 const findByCourtAndDate = (id_cancha, fecha, client = prisma) =>
   client.reserva.findMany({
     where: { id_cancha, fecha, estado: { in: ["CONFIRMADA", "PENDIENTE"] } },
@@ -40,14 +67,14 @@ const create = (data, client = prisma) => client.reserva.create({ data });
 const findById = (id_reserva, client = prisma) =>
   client.reserva.findUnique({
     where: { id_reserva },
-    include: { cancha: { select: CANCHA_SELECT } },
+    include: RESERVA_INCLUDE,
   });
 
 const findMany = (where, client = prisma) =>
   client.reserva.findMany({
     where,
     orderBy: [{ fecha: "desc" }, { hora_inicio: "asc" }],
-    include: { cancha: { select: CANCHA_SELECT } },
+    include: RESERVA_INCLUDE,
   });
 
 const updateEstado = (id_reserva, estado, client = prisma) =>

@@ -15,6 +15,7 @@ import CourtSearch from "./pages/CourtSearch";
 import CourtAvailability from "./pages/CourtAvailability";
 import ReservationCreate from "./pages/ReservationCreate";
 import ReservationPay from "./pages/ReservationPay";
+import OwnerReservations from "./pages/OwnerReservations";
 import Matches from "./pages/Matches";
 import MatchDetail from "./pages/MatchDetail";
 import CreateMatch from "./pages/CreateMatch";
@@ -120,6 +121,22 @@ const App = () => (
           element={
             <ProtectedRoute>
               <ReservationCreate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reservations/owner"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <OwnerReservations />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/reservations"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <OwnerReservations />
             </ProtectedRoute>
           }
         />

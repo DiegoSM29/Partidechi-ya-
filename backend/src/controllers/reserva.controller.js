@@ -15,7 +15,7 @@ const create = asyncHandler(async (req, res) => {
 });
 
 const list = asyncHandler(async (req, res) => {
-  const reservas = await reservaService.list(req.user);
+  const reservas = await reservaService.list(req.user, req.query || {});
   res.status(200).json({
     success: true,
     message: "Reservas consultadas correctamente",

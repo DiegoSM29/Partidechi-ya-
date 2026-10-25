@@ -21,6 +21,7 @@ const CreateMatch = () => {
     jugadores_maximos: "",
     descripcion: "",
   });
+  const reservasConfirmadas = reservas.filter((reserva) => reserva.estado === "CONFIRMADA");
 
   const cargar = async () => {
     setLoading(true);
@@ -108,16 +109,18 @@ const CreateMatch = () => {
               className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="">Selecciona una reserva</option>
-              {reservas.map((r) => (
+              {reservasConfirmadas.map((r) => (
                 <option key={r.id_reserva} value={r.id_reserva}>
                   #{r.id_reserva} · {r.cancha?.nombre} ({r.cancha?.deporte}) · {new Date(r.fecha).toLocaleDateString("es-ES")} {r.hora_inicio}-{r.hora_fin} · {r.estado}
                 </option>
               ))}
             </select>
-            {reservas.length === 0 ? (
-              <p className="mt-1 text-xs text-slate-500">No tienes reservas. Primero reserva una cancha.</p>
+            {reservasConfirmadas.length === 0 ? (
+              <p className="mt-1 text-xs text-slate-500">
+                No tienes reservas confirmadas. Una reserva se confirma automáticamente al pagar la cancha.
+              </p>
             ) : (
-              <p className="mt-1 text-xs text-slate-500">Solo se puede crear un partido asociado a una reserva válida y confirmada.</p>
+              <p className="mt-1 text-xs text-slate-500">Solo se muestran reservas confirmadas y listas para organizar el partido.</p>
             )}
           </div>
 
@@ -187,12 +190,7 @@ const CreateMatch = () => {
 
           <button
             type="submit"
-            disabled={guardando || reservas.length === 0 || (() => {
-              const r = reservas.find((res) => res.id_reserva == form.id_reserva);
-              if (!r) return false;
-              if (r.estado !== "CONFIRMADA") return true;
-              return false;
-            })()}
+            disabled={guardando || reservasConfirmadas.length === 0}
             className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
           >
             <Trophy size={16} />

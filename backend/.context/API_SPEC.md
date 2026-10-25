@@ -24,13 +24,14 @@ Todos los endpoints operan bajo el prefijo base `/api/v1`.
 
 ## Reservas y Pagos
 * POST `/api/v1/reservations` - Solicitar reserva (con transaccion de disponibilidad)
-* GET `/api/v1/reservations` - Consultar reservas autorizadas
-* GET `/api/v1/reservations/:id` - Consultar una reserva
+* GET `/api/v1/reservations` - Consultar reservas autorizadas; acepta filtros `id_cancha`, `estado`, `estado_pago`
+* GET `/api/v1/reservations/:id` - Consultar una reserva con sus pagos y datos del jugador
 * POST `/api/v1/reservations/:id/cancel` - Solicitar cancelacion
 * POST `/api/v1/reservations/:id/confirm` - Confirmar reserva
 * POST `/api/v1/reservations/:id/payments` - Registrar intento de pago o comprobante
 * GET `/api/v1/reservations/:id/payments` - Consultar pagos de una reserva
-* POST `/api/v1/payments/:id/verify` - Verificar pago manual (Propietario/Admin)
+* POST `/api/v1/reservations/:id/payments/paypal/capture` - Capturar pago PayPal y confirmar automaticamente la reserva
+* POST `/api/v1/payments/:id/verify` - Verificar pago manual (Propietario/Admin); al aprobar se confirma la reserva
 * POST `/api/v1/payments/webhook` - Recibir notificaciones de pasarela externa
 
 ## Partidos Amistosos

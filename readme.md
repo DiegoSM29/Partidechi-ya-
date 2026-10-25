@@ -52,7 +52,7 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 * Canchas: GET /api/v1/courts, GET /api/v1/courts/mine, POST /api/v1/courts, PATCH y DELETE /api/v1/courts/:id
 * Horarios: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability
 * Reservas: POST /api/v1/reservations, GET /api/v1/reservations, GET /api/v1/reservations/:id, POST /api/v1/reservations/:id/cancel, POST /api/v1/reservations/:id/confirm
-* Pagos: GET /api/v1/reservations/:id/payments/amount, POST /api/v1/reservations/:id/payments/paypal/simulate, POST /api/v1/reservations/:id/payments, GET /api/v1/reservations/:id/payments, POST /api/v1/payments/:id/verify
+* Pagos: GET /api/v1/reservations/:id/payments/amount, POST /api/v1/reservations/:id/payments/paypal/simulate, POST /api/v1/reservations/:id/payments/paypal/capture, POST /api/v1/reservations/:id/payments, GET /api/v1/reservations/:id/payments, POST /api/v1/payments/:id/verify
 * Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants
 * Administracion: /api/v1/admin/users, /api/v1/admin/statistics
 
@@ -112,10 +112,11 @@ Se implementó el flujo completo para reservar una cancha y registrar el pago co
   - `POST /api/v1/reservations` crea la reserva (estado `PENDIENTE`) validando disponibilidad. Reservas pendientes o confirmadas bloquean el horario.
   - `GET /api/v1/reservations/:id/payments/amount` muestra el importe a pagar (un solo pago por todas las horas seleccionadas).
   - `POST /api/v1/reservations/:id/payments/paypal/simulate` crea orden de PayPal Sandbox y devuelve URL de aprobación para redirigir al usuario.
-  - `POST /api/v1/payments/:id/verify` verifica el pago (Propietario/Administrador) y confirma la reserva si corresponde.
+  - `POST /api/v1/reservations/:id/payments/paypal/capture` captura la orden al volver de PayPal y confirma automáticamente la reserva. En modo sandbox, si PayPal no está disponible, permite completar la simulación para no bloquear las pruebas.
+  - `POST /api/v1/payments/:id/verify` verifica manualmente un pago (Propietario/Administrador): al aprobarlo, el pago queda `APROBADO` y la reserva se confirma automáticamente en la misma transacción.
 - **Frontend**
   - Nueva ruta `/reservations/new` para solicitar reserva.
-  - Nueva ruta `/reservations/:id/pay` redirige a PayPal Sandbox. Al volver con `?paypal=success` se muestra "Pago completado" con botón Volver.
+  - Nueva ruta `/reservations/:id/pay` redirige a PayPal Sandbox. Al volver con `?paypal=success` se captura el pago y se muestra la reserva confirmada con acceso directo a "Organizar partido". También permite registrar un pago manual con referencia y enlace de comprobante.
   - En disponibilidad, se pueden seleccionar múltiples horarios (carrito) y pulsar "Empezar a pagar" para un solo pago. Los horarios ya reservados aparecen como "No disponible".
 
 ### Credenciales PayPal Sandbox (Desarrollador)
@@ -142,7 +143,7 @@ Pasos:
 3. Crea una app o usa una existente → Copia `Client ID` y `Secret`
 4. Pega `PAYPAL_CLIENT_ID` y `PAYPAL_CLIENT_SECRET` en `backend/.env`. También puedes poner el `Client ID` en `frontend/.env`
 5. Usa cuentas de prueba (Sandbox test accounts) en developer.paypal.com para simular pagos sin costo real
-6. Al pulsar "Pagar con PayPal (Sandbox)", se redirige a PayPal Sandbox para simular el pago. Tras completar/cancelar, regresa al sitio. El pago queda registrado en estado pendiente y el propietario debe verificarlo para confirmar la reserva. La cancha se reserva solo tras la confirmación del pago.
+6. Al pulsar "Pagar con PayPal (Sandbox)", se redirige a PayPal Sandbox para simular el pago. Tras completar, el sitio captura la orden, marca el pago como aprobado y confirma la reserva automáticamente. Si se cancela, la reserva permanece pendiente y se puede reintentar o registrar un pago manual. El propietario también puede verificar manualmente el pago desde su panel de reservas.
 7. Para reservar múltiples horas, selecciona hora de inicio y hora de fin directamente (carrito/selectivo), se genera un solo pago por todo el bloque.
 
 ## Partidos Amistosos (HU - Jugador)
@@ -170,3 +171,73 @@ Se implementó la creación y gestión de partidos amistosos asociados a reserva
 ## Frontend de Canchas
 
 El frontend de propietarios documenta las rutas de consulta, alta y edicion en [frontend/README.md](frontend/README.md). Incluye mapa OpenStreetMap, busqueda por direccion, geolocalizacion, visualizacion de ubicaciones guardadas y eliminacion de canchas.
+
+## Gestión de Reservas y Verificación de Pagos (HU - Propietario)
+
+Se implementó la consulta de reservas y la verificación de pagos para que el propietario administre correctamente sus canchas. Además, el flujo de pago cambió: **una reserva se confirma automáticamente cuando su pago queda aprobado**, de modo que el jugador puede organizar un partido inmediatamente después de pagar.
+
+### Backend
+
+- **Consulta de reservas del propietario**
+  - `GET /api/v1/reservations` ahora acepta filtros opcionales: `id_cancha` (también `cancha_id`/`court_id`), `estado` (`PENDIENTE`, `CONFIRMADA`, `CANCELADA`, `COMPLETADA`) y `estado_pago` (`PENDIENTE`, `APROBADO`, `RECHAZADO`, `REEMBOLSADO`, `SIN_PAGO`).
+  - Para el rol `PROPIETARIO`, el backend fuerza el filtro `cancha.id_propietario = usuario autenticado`. Aunque se envíe el identificador de una cancha ajena, la consulta no devuelve reservas ajenas.
+  - Las respuestas incluyen la cancha, los datos de contacto del jugador, la lista de pagos (monto, método, referencia, comprobante, estado y fechas) y el partido asociado si existe.
+  - `GET /api/v1/reservations/:id` también incluye pagos y datos del jugador. Mantiene la validación de acceso: jugador propietario de la reserva, propietario de la cancha o administrador.
+- **Verificación de pagos y comprobantes**
+  - `POST /api/v1/payments/:id/verify` acepta `accion: "APROBAR" | "RECHAZAR"`.
+  - Al aprobar, el pago pasa a `APROBADO` y la reserva a `CONFIRMADA` en una sola transacción con control de solapamientos.
+  - Al rechazar, el pago queda `RECHAZADO` y la reserva continúa pendiente.
+  - Solo el propietario de la cancha o un administrador puede verificar el pago; un jugador recibe `403`.
+- **Confirmación automática al pagar**
+  - `POST /api/v1/reservations/:id/payments/paypal/capture` captura la orden de PayPal al regresar del checkout, marca el pago como aprobado y confirma la reserva automáticamente.
+  - La operación es idempotente: si la reserva ya está confirmada no vuelve a capturar ni duplica pagos.
+  - En `PAYPAL_MODE=sandbox`, si PayPal no está configurado o no puede capturarse la orden, se permite completar la simulación para no bloquear las pruebas. En modo `live` un fallo de captura impide confirmar el pago.
+  - La reserva confirmada ya cumple la regla existente de partidos: `POST /api/v1/matches` exige una reserva `CONFIRMADA` del mismo jugador.
+- **Pagos manuales**
+  - `POST /api/v1/reservations/:id/payments` sigue permitiendo registrar un pago con método, referencia y `comprobante_url`. Queda en estado `PENDIENTE` hasta que el propietario lo verifique.
+
+| Método | Endpoint | Acceso | Descripción |
+|---|---|---|---|
+| GET | `/api/v1/reservations?id_cancha=&estado=&estado_pago=` | Autenticado | Consultar reservas autorizadas; el propietario solo ve sus canchas |
+| GET | `/api/v1/reservations/:id` | Autenticado | Consultar detalle de reserva con pagos y datos del jugador |
+| POST | `/api/v1/reservations/:id/payments/paypal/capture` | Autenticado | Capturar pago PayPal y confirmar la reserva automáticamente |
+| GET | `/api/v1/reservations/:id/payments` | Autenticado | Consultar pagos y comprobantes de una reserva autorizada |
+| POST | `/api/v1/payments/:id/verify` | Propietario / Admin | Aprobar o rechazar un pago; al aprobar se confirma la reserva |
+| POST | `/api/v1/reservations/:id/payments` | Autenticado | Registrar pago manual pendiente de verificación |
+
+### Frontend
+
+- **Nueva vista de reservas del propietario** en `/reservations/owner` (alias `/owner/reservations`), accesible desde el navbar ("Reservas") y desde el botón de cada cancha en "Mis canchas".
+  - Filtros por cancha, estado de reserva y estado de pago.
+  - Tarjetas de resumen: reservas encontradas, confirmadas, pendientes de pago y pagos por verificar.
+  - Cada reserva muestra fecha, horario, monto, estado, jugador, correo y cancha.
+  - Cada pago muestra método, monto, referencia, estado, fechas y enlace al comprobante cuando existe.
+  - Botones "Aprobar y confirmar" y "Rechazar" para pagos pendientes. Al aprobar se informa que la reserva quedó confirmada automáticamente.
+  - La vista solo está protegida para el rol `PROPIETARIO`, y el backend vuelve a validar la pertenencia de cada cancha.
+- **Flujo de pago actualizado en `/reservations/:id/pay`**
+  - Al regresar de PayPal con `?paypal=success`, el frontend llama a la captura del pago y muestra la reserva confirmada.
+  - La pantalla de éxito incluye el botón "Organizar partido" para crear un partido asociado a esa reserva confirmada.
+  - Se agregó un formulario de pago manual con método, referencia y enlace de comprobante.
+- **Creación de partidos**
+  - `CreateMatch` ahora muestra únicamente reservas `CONFIRMADA` y explica que una reserva se confirma automáticamente al pagar.
+  - Si no hay reservas confirmadas, indica que primero debe pagarse una reserva.
+
+### Archivos principales modificados
+
+- `backend/src/repositories/reserva.repository.js`: incluye pagos, jugador y partido en las consultas de reservas.
+- `backend/src/services/reserva.service.js`: filtros de consulta y aislamiento de reservas por propietario.
+- `backend/src/services/pago.service.js`: captura de PayPal, confirmación automática y verificación transaccional de pagos.
+- `backend/src/controllers/reserva.controller.js` y `backend/src/controllers/pago.controller.js`: nuevos parámetros y endpoint de captura.
+- `backend/src/routes/reservation.routes.js`: ruta `POST /reservations/:id/payments/paypal/capture`.
+- `frontend/src/pages/OwnerReservations.jsx`: panel de reservas y pagos del propietario.
+- `frontend/src/pages/ReservationPay.jsx`: captura automática, pago manual y acceso a organizar partido.
+- `frontend/src/pages/CreateMatch.jsx`: solo reservas confirmadas.
+- `frontend/src/App.jsx`, `frontend/src/components/Navbar.jsx`, `frontend/src/pages/OwnerCourts.jsx` y `frontend/src/api/reservations.js`: rutas, navegación y llamadas a la API.
+
+### Validación realizada
+
+- `node --check` sobre los archivos backend modificados.
+- `npx prisma validate` con el esquema actual.
+- `npm run build` en el frontend (compilación correcta).
+- Pruebas manuales contra la API local: listado y filtros de reservas del propietario, aprobación de un pago con confirmación automática de la reserva, captura simulada de PayPal en sandbox y rechazo de verificación por parte de un jugador.
+- No se requirieron migraciones nuevas porque se reutilizan los estados y campos existentes de `reservas` y `pagos`.

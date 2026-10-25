@@ -14,6 +14,7 @@ router.post("/:id/confirm", authenticate, reservaController.confirm);
 // Pagos asociados a la reserva
 router.get("/:id/payments/amount", authenticate, pagoController.getAmount);
 router.post("/:id/payments/paypal/simulate", authenticate, pagoController.paypalSimulate);
+router.post("/:id/payments/paypal/capture", authenticate, pagoController.paypalCapture);
 router.post("/:id/payments", authenticate, pagoController.registerPayment);
 router.get("/:id/payments", authenticate, pagoController.listPayments);
 

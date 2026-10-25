@@ -65,6 +65,10 @@ npm run dev        → http://localhost:5173
 | `/courts/new` | Propietario | Registro de cancha |
 | `/courts/:id/edit` | Propietario | Edicion de cancha propia |
 | `/courts/:id/schedules` | Propietario | Configuracion de horarios registrados y consulta de disponibilidad |
+| `/reservations/new` | Protegida | Solicitud de reserva desde un horario disponible |
+| `/reservations/:id/pay` | Protegida | Pago PayPal/manual y confirmacion automatica de la reserva |
+| `/reservations/owner` | Propietario | Consulta de reservas propias, estados de pago y verificacion de comprobantes |
+| `/matches`, `/matches/create`, `/matches/:id` | Protegida | Partidos amistosos asociados a reservas confirmadas |
 | `/` | — | Redirige a `/login` o `/profile` segun sesion |
 | `*` | — | Pagina 404 |
 
@@ -95,6 +99,19 @@ Desde **Mis canchas**, el botón de calendario abre `/courts/:id/schedules`. La 
 * Consultar la disponibilidad resultante para una fecha, mostrando turnos disponibles y reservados.
 
 La API rechaza horarios solapados, reservas fuera de los intervalos registrados y reservas que choquen con otra reserva activa.
+
+## Reservas y Pagos del Propietario
+
+La vista `/reservations/owner` permite al propietario consultar las reservas de sus canchas y verificar pagos:
+
+* Filtros por cancha, estado de la reserva y estado del pago.
+* Resumen de reservas encontradas, confirmadas, pendientes de pago y pagos por verificar.
+* Detalle de cada reserva con fecha, horario, monto, jugador, correo y estado.
+* Lista de pagos con método, monto, referencia, comprobante y fechas.
+* Botones **Aprobar y confirmar** o **Rechazar** para pagos pendientes. Al aprobar, el backend confirma la reserva automáticamente en la misma transaccion.
+* La API fuerza el filtro por propietario, por lo que no es posible consultar ni verificar reservas de canchas ajenas.
+
+El flujo de pago del jugador (`/reservations/:id/pay`) captura el pago de PayPal al regresar del checkout y confirma la reserva automaticamente. La pantalla de exito permite crear un partido con esa reserva. Tambien se puede registrar un pago manual con referencia y enlace de comprobante para que el propietario lo verifique.
 
 ## Flujo de Autenticacion
 1. El cliente guarda el JWT en `LocalStorage` (`partidechi_token`).

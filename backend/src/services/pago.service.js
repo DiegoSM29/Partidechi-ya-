@@ -23,6 +23,89 @@ const assertCanAccessReservation = (usuario, reserva) => {
   throw new ApiError(403, "No tiene permisos para gestionar esta reserva");
 };
 
+const esPagoPaypal = (pago) => /paypal/i.test(String(pago?.metodo_pago || ""));
+
+const esCapturaCompletada = (result = {}) => {
+  if (result.status === "COMPLETED") return true;
+  return (result.purchase_units || []).some((unidad) =>
+    (unidad.payments?.captures || []).some((captura) => captura.status === "COMPLETED")
+  );
+};
+
+// Aprueba un pago y confirma la reserva en una sola transaccion. Se usa tanto
+// para la verificacion manual del propietario como para la confirmacion
+// automatica al capturar un pago de PayPal.
+const aprobarPagoYConfirmarReserva = async ({
+  id_pago,
+  id_reserva,
+  verificado_por = null,
+  referencia,
+  comprobante_url,
+}) =>
+  prisma.$transaction(
+    async (tx) => {
+      const reserva = await tx.reserva.findUnique({ where: { id_reserva } });
+      if (!reserva) throw new ApiError(404, "Reserva no encontrada");
+      if (reserva.estado === "CANCELADA") {
+        throw new ApiError(400, "No se puede confirmar una reserva cancelada");
+      }
+      if (reserva.estado === "COMPLETADA") {
+        throw new ApiError(400, "No se puede confirmar una reserva completada");
+      }
+
+      const solapantes = await tx.reserva.findMany({
+        where: {
+          id_cancha: reserva.id_cancha,
+          fecha: reserva.fecha,
+          estado: { in: ["PENDIENTE", "CONFIRMADA"] },
+          NOT: { id_reserva },
+          hora_inicio: { lt: reserva.hora_fin },
+          hora_fin: { gt: reserva.hora_inicio },
+        },
+      });
+      if (solapantes.length > 0) {
+        throw new ApiError(
+          400,
+          "La reserva entra en conflicto con otra reserva activa"
+        );
+      }
+
+      const datosPago = {
+        estado: "APROBADO",
+        fecha_verificacion: new Date(),
+        verificado_por,
+      };
+      if (referencia) datosPago.referencia = referencia;
+      if (comprobante_url) datosPago.comprobante_url = comprobante_url;
+
+      const pagoActualizado = await tx.pago.update({
+        where: { id_pago },
+        data: datosPago,
+      });
+
+      const reservaActualizada = await tx.reserva.update({
+        where: { id_reserva },
+        data: { estado: "CONFIRMADA" },
+        include: {
+          cancha: true,
+          usuario: {
+            select: {
+              id_usuario: true,
+              nombre: true,
+              apellido: true,
+              correo: true,
+              telefono: true,
+            },
+          },
+          pagos: { orderBy: { fecha_pago: "desc" } },
+        },
+      });
+
+      return { pago: pagoActualizado, reserva: reservaActualizada };
+    },
+    { isolationLevel: "Serializable" }
+  );
+
 const registerPayment = async (usuario, rawIdReserva, input = {}) => {
   const id_reserva = parseId(rawIdReserva, "reserva");
   const reserva = await reservaRepository.findById(id_reserva);
@@ -85,6 +168,9 @@ const verifyPayment = async (usuario, rawIdPago, input = {}) => {
   if (reserva.estado === "CANCELADA") {
     throw new ApiError(400, "No se puede verificar un pago para una reserva cancelada");
   }
+  if (reserva.estado === "COMPLETADA") {
+    throw new ApiError(400, "No se puede verificar un pago para una reserva completada");
+  }
 
   // Verificar permisos si es propietario
   if (usuario.rol === "PROPIETARIO" && reserva.cancha?.id_propietario !== usuario.id_usuario) {
@@ -94,6 +180,10 @@ const verifyPayment = async (usuario, rawIdPago, input = {}) => {
   const accion = (input.accion ?? input.action ?? "APROBAR").toString().toUpperCase();
   if (accion !== "APROBAR" && accion !== "RECHAZAR") {
     throw new ApiError(400, "La accion debe ser APROBAR o RECHAZAR");
+  }
+
+  if (pago.estado !== "PENDIENTE") {
+    throw new ApiError(400, "El pago ya fue verificado previamente");
   }
 
   if (accion === "RECHAZAR") {
@@ -108,43 +198,12 @@ const verifyPayment = async (usuario, rawIdPago, input = {}) => {
     return { pago: pagoActualizado, reserva };
   }
 
-  // APROBAR: verificar disponibilidad nuevamente y confirmar reserva
-  return prisma.$transaction(
-    async (tx) => {
-      // Verificar solapamiento con reservas activas (excluyendo esta reserva)
-      const solapantes = await tx.reserva.findMany({
-        where: {
-          id_cancha: reserva.id_cancha,
-          fecha: reserva.fecha,
-          estado: { in: ["PENDIENTE", "CONFIRMADA"] },
-          NOT: { id_reserva: reserva.id_reserva },
-          hora_inicio: { lt: reserva.hora_fin },
-          hora_fin: { gt: reserva.hora_inicio },
-        },
-      });
-      if (solapantes.length > 0) {
-        throw new ApiError(400, "La reserva entra en conflicto con otra reserva activa");
-      }
-
-      const pagoActualizado = await tx.pago.update({
-        where: { id_pago },
-        data: {
-          estado: "APROBADO",
-          verificado_por: usuario.id_usuario,
-          fecha_verificacion: new Date(),
-        },
-      });
-
-      const reservaActualizada = await tx.reserva.update({
-        where: { id_reserva: reserva.id_reserva },
-        data: { estado: "CONFIRMADA" },
-        include: { cancha: true },
-      });
-
-      return { pago: pagoActualizado, reserva: reservaActualizada };
-    },
-    { isolationLevel: "Serializable" }
-  );
+  // APROBAR: confirmar el pago y la reserva en una sola transaccion.
+  return aprobarPagoYConfirmarReserva({
+    id_pago,
+    id_reserva: reserva.id_reserva,
+    verificado_por: usuario.id_usuario,
+  });
 };
 
 const paypalSimulate = async (usuario, rawIdReserva, input = {}) => {
@@ -192,17 +251,18 @@ const paypalSimulate = async (usuario, rawIdReserva, input = {}) => {
 
     const order = await client().execute(request);
     const approvalUrl = order.result.links?.find((l) => l.rel === "approve")?.href;
+    const orderId = order.result.id;
 
     const pago = await pagoRepository.create({
       id_reserva,
       monto: Math.round(monto * 100) / 100,
       metodo_pago: "PAYPAL",
-      referencia,
+      referencia: orderId || referencia,
       comprobante_url: approvalUrl || null,
       estado: "PENDIENTE",
     });
 
-    return { pago, reserva, amount: pago.monto, currency: "BOB", approvalUrl, orderId: order.result.id };
+    return { pago, reserva, amount: pago.monto, currency: "BOB", approvalUrl, orderId };
   } catch (error) {
     // Fallback: crear registro pendiente aunque no se pueda crear orden
     const pago = await pagoRepository.create({
@@ -215,6 +275,120 @@ const paypalSimulate = async (usuario, rawIdReserva, input = {}) => {
     });
     return { pago, reserva, amount: pago.monto, currency: "BOB" };
   }
+};
+
+const paypalCapture = async (usuario, rawIdReserva, input = {}) => {
+  const id_reserva = parseId(rawIdReserva, "reserva");
+  const reserva = await reservaRepository.findById(id_reserva);
+  if (!reserva) throw new ApiError(404, "Reserva no encontrada");
+  assertCanAccessReservation(usuario, reserva);
+
+  if (reserva.estado === "CANCELADA") {
+    throw new ApiError(400, "No se puede confirmar el pago de una reserva cancelada");
+  }
+  if (reserva.estado === "COMPLETADA") {
+    throw new ApiError(400, "No se puede confirmar el pago de una reserva completada");
+  }
+
+  const pagos = await pagoRepository.findByReservation(id_reserva);
+
+  // Idempotencia: si la reserva ya fue confirmada no se vuelve a capturar.
+  if (reserva.estado === "CONFIRMADA") {
+    const pagoAprobado =
+      pagos.find((pago) => pago.estado === "APROBADO") ||
+      pagos.find(esPagoPaypal) ||
+      null;
+    return {
+      pago: pagoAprobado,
+      reserva,
+      alreadyConfirmed: true,
+      captured: false,
+      warning: null,
+    };
+  }
+
+  const pagosPendientesPaypal = pagos.filter(
+    (pago) => pago.estado === "PENDIENTE" && esPagoPaypal(pago)
+  );
+  if (pagosPendientesPaypal.length === 0) {
+    throw new ApiError(
+      400,
+      "No existe un pago de PayPal pendiente para esta reserva. Registra el pago primero."
+    );
+  }
+
+  const orderIdInput = String(
+    input.orderId ?? input.order_id ?? input.token ?? ""
+  ).trim();
+  const sandbox = (process.env.PAYPAL_MODE || "sandbox") !== "live";
+  const pagoCoincidente = orderIdInput
+    ? pagosPendientesPaypal.find(
+        (pago) => String(pago.referencia || "") === orderIdInput
+      )
+    : null;
+
+  if (orderIdInput && !pagoCoincidente && !sandbox) {
+    throw new ApiError(
+      400,
+      "La orden de PayPal no corresponde a un pago pendiente de esta reserva"
+    );
+  }
+
+  const pagoPendiente = pagoCoincidente || pagosPendientesPaypal[0];
+  const orderId = orderIdInput || String(pagoPendiente.referencia || "").trim();
+
+  let captured = false;
+  let captureId = null;
+  let warning = null;
+
+  if (orderId) {
+    try {
+      const request = new paypal.orders.OrdersCaptureRequest(orderId);
+      request.requestBody({});
+      const response = await client().execute(request);
+      captured = esCapturaCompletada(response.result);
+      captureId =
+        response.result?.purchase_units?.[0]?.payments?.captures?.[0]?.id || null;
+      if (!captured) {
+        throw new ApiError(400, "PayPal no confirmó la captura del pago");
+      }
+    } catch (error) {
+      // En produccion un fallo de captura impide confirmar el pago.
+      if (error instanceof ApiError) throw error;
+      if (!sandbox) {
+        throw new ApiError(
+          502,
+          "No se pudo confirmar el pago con PayPal. Intenta nuevamente."
+        );
+      }
+      // En modo sandbox se permite continuar con la simulación cuando PayPal
+      // no está configurado o no está disponible, para no bloquear las pruebas.
+      warning =
+        "No se pudo capturar la orden en PayPal; se confirmó el pago en modo sandbox.";
+      console.warn("PayPal capture fallback:", error.message);
+    }
+  } else if (!sandbox) {
+    throw new ApiError(400, "No se recibió el identificador de la orden de PayPal");
+  } else {
+    warning =
+      "No se recibió el identificador de la orden de PayPal; se confirmó el pago en modo sandbox.";
+  }
+
+  const resultado = await aprobarPagoYConfirmarReserva({
+    id_pago: pagoPendiente.id_pago,
+    id_reserva,
+    verificado_por: null,
+    referencia: orderId || pagoPendiente.referencia,
+    comprobante_url: pagoPendiente.comprobante_url,
+  });
+
+  return {
+    ...resultado,
+    alreadyConfirmed: false,
+    captured,
+    captureId,
+    warning,
+  };
 };
 
 const getAmount = async (usuario, rawIdReserva) => {
@@ -230,5 +404,6 @@ module.exports = {
   listPayments,
   verifyPayment,
   paypalSimulate,
+  paypalCapture,
   getAmount,
 };
