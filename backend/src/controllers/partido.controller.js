@@ -38,6 +38,15 @@ const update = asyncHandler(async (req, res) => {
   });
 });
 
+const remove = asyncHandler(async (req, res) => {
+  await partidoService.remove(req.user, req.params.id);
+  res.status(200).json({
+    success: true,
+    message: "Partido eliminado correctamente",
+    data: {},
+  });
+});
+
 const join = asyncHandler(async (req, res) => {
   const partido = await partidoService.join(req.user, req.params.id);
   res.status(200).json({
@@ -65,4 +74,4 @@ const getParticipants = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { create, list, getById, update, join, leave, getParticipants };
+module.exports = { create, list, getById, update, remove, join, leave, getParticipants };

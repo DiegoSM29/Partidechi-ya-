@@ -108,8 +108,12 @@ const update = async (usuario, rawId, input = {}) => {
   const id_partido = parseId(rawId);
   const partido = await partidoRepository.findById(id_partido);
   if (!partido) throw new ApiError(404, "Partido no encontrado");
-  if (partido.id_organizador !== usuario.id_usuario && usuario.rol !== "ADMINISTRADOR") {
-    throw new ApiError(403, "Solo el organizador puede actualizar el partido");
+
+  // Un partido creado por un jugador es definitivo: la confirmacion previa a
+  // la creacion advierte que no se podra modificar despues. Solo un
+  // administrador puede intervenir para moderar el partido.
+  if (usuario.rol !== "ADMINISTRADOR") {
+    throw new ApiError(403, "El partido no puede modificarse después de su creación");
   }
 
   const data = {};
@@ -126,6 +130,23 @@ const update = async (usuario, rawId, input = {}) => {
 
   await partidoRepository.update(id_partido, data);
   return partidoRepository.findById(id_partido);
+};
+
+const remove = async (usuario, rawId) => {
+  const id_partido = parseId(rawId);
+  const partido = await partidoRepository.findById(id_partido);
+  if (!partido) throw new ApiError(404, "Partido no encontrado");
+  if (partido.id_organizador !== usuario.id_usuario) {
+    throw new ApiError(403, "Solo el organizador puede eliminar el partido");
+  }
+  if (partido.estado !== "PUBLICADO") {
+    throw new ApiError(400, "Solo se pueden eliminar partidos publicados");
+  }
+  if (partido.fecha_hora.getTime() - Date.now() < 24 * 60 * 60 * 1000) {
+    throw new ApiError(400, "El partido solo puede eliminarse con al menos 24 horas de anticipación");
+  }
+
+  await partidoRepository.remove(id_partido);
 };
 
 const join = async (usuario, rawId) => {
@@ -184,4 +205,4 @@ const getParticipants = async (rawId) => {
   return participanteRepository.findByPartido(id_partido);
 };
 
-module.exports = { create, list, getById, update, join, leave, getParticipants };
+module.exports = { create, list, getById, update, remove, join, leave, getParticipants };

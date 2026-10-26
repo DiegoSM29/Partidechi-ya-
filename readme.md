@@ -53,7 +53,7 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 * Horarios: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability
 * Reservas: POST /api/v1/reservations, GET /api/v1/reservations, GET /api/v1/reservations/:id, POST /api/v1/reservations/:id/cancel, POST /api/v1/reservations/:id/confirm
 * Pagos: GET /api/v1/reservations/:id/payments/amount, POST /api/v1/reservations/:id/payments/paypal/simulate, POST /api/v1/reservations/:id/payments/paypal/capture, POST /api/v1/reservations/:id/payments, GET /api/v1/reservations/:id/payments, POST /api/v1/payments/:id/verify
-* Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants
+* Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, DELETE /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants
 * Administracion: /api/v1/admin/users, /api/v1/admin/statistics
 
 ## Gestion de Canchas
@@ -154,7 +154,8 @@ Se implementó la creación y gestión de partidos amistosos asociados a reserva
   - Modelo `Partido` y `Participante` agregados al esquema Prisma con sus respectivas relaciones y estados. Migraciones `partidos_participantes` y `cancha_jugadores_maximos` creadas y aplicadas.
   - Se agregó `jugadores_maximos` a `canchas` (definido por el propietario al registrar/editar la cancha). El número máximo de jugadores del partido no puede superar el límite de la cancha.
   - `POST /api/v1/matches` crea un partido asociado obligatoriamente a una `reserva` válida y confirmada. El deporte se toma de la cancha reservada (no editable manualmente). El organizador se agrega automáticamente como participante aceptado.
-  - `GET /api/v1/matches` lista partidos públicos publicados. `GET /api/v1/matches/:id` consulta el detalle con participantes. `PATCH /api/v1/matches/:id` permite al organizador/administrador actualizar información autorizada.
+  - `GET /api/v1/matches` lista partidos públicos publicados. `GET /api/v1/matches/:id` consulta el detalle con participantes. `PATCH /api/v1/matches/:id` queda reservado al administrador para moderación: un partido creado por un jugador no puede modificarse después de su creación.
+  - `DELETE /api/v1/matches/:id` permite al organizador eliminar su partido publicado únicamente cuando faltan al menos 24 horas para su inicio; el backend aplica el control de identidad y plazo.
   - `POST /api/v1/matches/:id/join` permite unirse si hay plazas disponibles; el sistema controla el número máximo de jugadores (`jugadores_maximos`).
   - `POST /api/v1/matches/:id/leave` permite abandonar el partido (el organizador no puede abandonar).
   - `GET /api/v1/matches/:id/participants` consulta la lista de participantes.
@@ -162,11 +163,13 @@ Se implementó la creación y gestión de partidos amistosos asociados a reserva
 
 - **Frontend (Jugador/Propietario)**
   - Nuevas rutas `/matches`, `/matches/create`, `/matches/new`, `/matches/:id`.
-  - Listado de partidos publicados con información de fecha, hora, cancha/ubicación y plazas.
-  - Creación de partido desde reservas (`/matches/create`), mostrando todas las reservas del usuario. El deporte se obtiene automáticamente de la cancha reservada (campo de solo lectura). El número máximo de jugadores debe respetar el límite configurado en la cancha.
+  - Listado con secciones para ver partidos organizados por el usuario y partidos de otros jugadores; en estos últimos se puede filtrar por deporte, fecha y ubicación.
+  - Creación de partido desde reservas (`/matches/create`), mostrando únicamente reservas confirmadas sin partido asociado. El deporte se obtiene automáticamente de la cancha reservada (campo de solo lectura). El número máximo de jugadores debe respetar el límite configurado en la cancha.
+  - Antes de crear el partido se muestra un resumen de confirmación con cancha, fecha, hora, nombre, deporte, plazas y descripción, junto con la advertencia de que **el partido no podrá modificarse después**. Solo al confirmar se envía la solicitud al backend.
+  - La barra superior resalta la pestaña activa (Buscar canchas, Partidos, Crear partido, Mis canchas, Reservas o Perfil), incluyendo las vistas de detalle y subrutas de cada sección.
   - El propietario puede definir `jugadores_maximos` al registrar/editar su cancha.
-  - Vista de detalle del partido con lista de participantes, control de plazas, opción para unirse o abandonar.
-  - Corrección en búsqueda de canchas: el filtro por precio máximo filtra correctamente mostrando canchas con precio <= precio máximo buscado.
+  - Vista de detalle del partido con lista de participantes, control de plazas, opción para unirse o abandonar y eliminación por el organizador con un mínimo de 24 horas de anticipación.
+  - El filtro por precio máximo muestra canchas con precio menor o igual al valor ingresado y permite ingresar valores intermedios en incrementos de Bs. 1.
 
 ## Frontend de Canchas
 

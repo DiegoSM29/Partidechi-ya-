@@ -46,4 +46,7 @@ const findMany = (where = {}, client = prisma) =>
 const update = (id_partido, data, client = prisma) =>
   client.partido.update({ where: { id_partido }, data });
 
-module.exports = { create, findById, findMany, update };
+const remove = (id_partido, client = prisma) =>
+  client.partido.delete({ where: { id_partido } });
+
+module.exports = { create, findById, findMany, update, remove };

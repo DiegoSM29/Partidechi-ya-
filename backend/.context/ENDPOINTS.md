@@ -98,10 +98,13 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | `POST` | `/api/v1/matches` | Jugador | Crear un partido asociado obligatoriamente a una reserva confirmada. |
 | `GET` | `/api/v1/matches` | No | Consultar partidos públicos publicados. |
 | `GET` | `/api/v1/matches/:id` | No | Consultar la información detallada de un partido. |
-| `PATCH` | `/api/v1/matches/:id` | Organizador | Actualizar información autorizada del partido. |
+| `DELETE` | `/api/v1/matches/:id` | Organizador autenticado | Eliminar un partido publicado propio con al menos 24 horas de anticipación. |
+| `PATCH` | `/api/v1/matches/:id` | Administrador | Moderar un partido. El organizador no puede modificar un partido después de crearlo. |
 | `POST` | `/api/v1/matches/:id/join` | Jugador | Solicitar incorporarse a un partido si existen plazas disponibles. |
 | `POST` | `/api/v1/matches/:id/leave` | Jugador | Abandonar un partido previamente unido. |
 | `GET` | `/api/v1/matches/:id/participants` | No | Consultar la lista de participantes del partido. |
+
+> **Regla de negocio:** Solo el organizador puede eliminar su partido publicado y únicamente si faltan al menos 24 horas para su inicio. El servidor valida el plazo y la identidad, aunque la interfaz oculte la opción cuando ya no se cumple la condición.
 
 ---
 

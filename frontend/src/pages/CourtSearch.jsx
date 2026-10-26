@@ -160,7 +160,7 @@ const CourtSearch = () => {
                 name="precio_max"
                 type="number"
                 min="0"
-                step="10"
+                step="1"
                 value={filters.precio_max}
                 onChange={handleChange}
                 placeholder="500"

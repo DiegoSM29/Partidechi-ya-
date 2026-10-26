@@ -113,6 +113,19 @@ La vista `/reservations/owner` permite al propietario consultar las reservas de 
 
 El flujo de pago del jugador (`/reservations/:id/pay`) captura el pago de PayPal al regresar del checkout y confirma la reserva automaticamente. La pantalla de exito permite crear un partido con esa reserva. Tambien se puede registrar un pago manual con referencia y enlace de comprobante para que el propietario lo verifique.
 
+## Partidos Amistosos y Navegacion
+
+La creacion de partidos (`/matches/create`) muestra un resumen de confirmacion antes de enviar la solicitud: reserva, cancha, fecha, hora, nombre, deporte, maximo de jugadores y descripcion. La pantalla advierte que, una vez creado, el partido no podra modificarse. El backend rechaza las actualizaciones del organizador; solo un administrador puede intervenir para moderar el partido.
+
+La barra superior resalta la pestaña activa con fondo y borde verde:
+
+* **Buscar canchas** en `/courts/search`, disponibilidad, solicitud de reserva y pago.
+* **Partidos** en `/matches` y el detalle de un partido.
+* **Crear partido** en `/matches/create` y `/matches/new`.
+* **Mis canchas** en la gestion de canchas, horarios y edicion.
+* **Reservas** en el panel de reservas del propietario.
+* **Perfil** en `/profile`, ademas de las pestañas publicas de inicio de sesion y registro.
+
 ## Flujo de Autenticacion
 1. El cliente guarda el JWT en `LocalStorage` (`partidechi_token`).
 2. El interceptor de Axios inyecta `Authorization: Bearer <token>` en cada peticion.

@@ -8,6 +8,7 @@ const router = Router();
 router.post("/", authenticate, partidoController.create);
 router.get("/", partidoController.list);
 router.get("/:id", partidoController.getById);
+router.delete("/:id", authenticate, partidoController.remove);
 router.patch("/:id", authenticate, partidoController.update);
 router.post("/:id/join", authenticate, partidoController.join);
 router.post("/:id/leave", authenticate, partidoController.leave);

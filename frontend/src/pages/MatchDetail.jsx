@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, MapPinned, Users, UserRound, ArrowLeft, LogIn, LogOut } from "lucide-react";
-import { getMatchById, joinMatch, leaveMatch } from "../api/matches";
+import { CalendarDays, MapPinned, Users, UserRound, ArrowLeft, Lock, LogIn, LogOut, Trash2 } from "lucide-react";
+import { deleteMatch, getMatchById, joinMatch, leaveMatch } from "../api/matches";
 import { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
@@ -15,6 +15,7 @@ const MatchDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [accion, setAccion] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
 
   const cargar = async () => {
     setLoading(true);
@@ -48,6 +49,9 @@ const MatchDetail = () => {
     (p) => p.id_usuario === user?.id_usuario && p.estado === "ACEPTADO"
   );
   const esOrganizador = partido?.id_organizador === user?.id_usuario;
+  const puedeEliminar =
+    partido?.estado === "PUBLICADO" &&
+    new Date(partido.fecha_hora).getTime() - Date.now() >= 24 * 60 * 60 * 1000;
   const aceptados = partido?.participantes?.filter((p) => p.estado === "ACEPTADO") || [];
   const plazasLibres = partido ? partido.jugadores_maximos - aceptados.length : 0;
 
@@ -74,6 +78,22 @@ const MatchDetail = () => {
       setError(getApiError(e));
     } finally {
       setAccion(false);
+    }
+  };
+
+  const handleEliminar = async () => {
+    if (!window.confirm("¿Deseas eliminar este partido? Solo puede eliminarse con al menos 24 horas de anticipación.")) {
+      return;
+    }
+    setEliminando(true);
+    setError("");
+    try {
+      await deleteMatch(id);
+      navigate("/matches");
+    } catch (e) {
+      setError(getApiError(e));
+    } finally {
+      setEliminando(false);
     }
   };
 
@@ -124,6 +144,16 @@ const MatchDetail = () => {
             <p className="mt-1 text-sm text-slate-500">{partido.deporte} · Organizado por {partido.organizador?.nombre} {partido.organizador?.apellido}</p>
           </div>
           <div className="flex gap-2">
+            {esOrganizador && partido.estado === "PUBLICADO" && puedeEliminar ? (
+              <button
+                onClick={handleEliminar}
+                disabled={eliminando}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <Trash2 size={16} />
+                {eliminando ? "Eliminando..." : "Eliminar partido"}
+              </button>
+            ) : null}
             {user && !esOrganizador && partido.estado === "PUBLICADO" ? (
               yaUnido ? (
                 <button
@@ -183,6 +213,21 @@ const MatchDetail = () => {
             {partido.id_reserva ? (
               <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-inset ring-slate-200">
                 Asociado a reserva #{partido.id_reserva} (confirmada)
+              </div>
+            ) : null}
+            {esOrganizador ? (
+              <div className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
+                <Lock size={15} className="mt-0.5 shrink-0" />
+                <span>
+                  Los datos del partido no pueden modificarse. Puedes eliminarlo solo con
+                  al menos 24 horas de anticipación; los jugadores pueden unirse o abandonar
+                  desde esta misma página.
+                </span>
+              </div>
+            ) : null}
+            {esOrganizador && partido.estado === "PUBLICADO" && !puedeEliminar ? (
+              <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-inset ring-slate-200">
+                Ya no es posible eliminar este partido: debe hacerse con al menos 24 horas de anticipación.
               </div>
             ) : null}
           </div>

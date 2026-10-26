@@ -38,10 +38,13 @@ Todos los endpoints operan bajo el prefijo base `/api/v1`.
 * POST `/api/v1/matches` - Crear partido asociado a reserva confirmada
 * GET `/api/v1/matches` - Consultar partidos publicados
 * GET `/api/v1/matches/:id` - Consultar un partido
-* PATCH `/api/v1/matches/:id` - Actualizar partido
+* DELETE `/api/v1/matches/:id` - Eliminar un partido publicado propio con al menos 24 horas de anticipacion
+* PATCH `/api/v1/matches/:id` - Moderar partido (solo administrador; el organizador no puede modificarlo tras crearlo)
 * POST `/api/v1/matches/:id/join` - Unirse a partido
 * POST `/api/v1/matches/:id/leave` - Abandonar partido
 * GET `/api/v1/matches/:id/participants` - Consultar participantes
+
+Solo el organizador puede eliminar su partido publicado y unicamente si faltan al menos 24 horas para su inicio. El backend valida identidad y plazo independientemente de la interfaz.
 
 ## Administracion
 * GET `/api/v1/admin/users` - Consultar usuarios
