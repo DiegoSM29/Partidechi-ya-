@@ -12,6 +12,7 @@ router.get("/mine", authenticate, authorize("PROPIETARIO"), canchaController.lis
 router.get("/:id", canchaController.getById);
 router.post("/", authenticate, authorize("PROPIETARIO"), canchaController.create);
 router.patch("/:id", authenticate, authorize("PROPIETARIO"), canchaController.updateMine);
+router.put("/:id", authenticate, authorize("PROPIETARIO"), canchaController.updateMine);
 router.delete("/:id", authenticate, authorize("PROPIETARIO"), canchaController.deleteMine);
 
 // Horarios de funcionamiento (se aceptan /schedules y /horarios como alias).

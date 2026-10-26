@@ -82,6 +82,7 @@ const OwnerCourts = () => {
                     <h2 className="truncate text-lg font-semibold text-slate-950">{cancha.nombre}</h2>
                     <p className="mt-2 flex items-center gap-1.5 text-sm text-slate-600"><MapPin size={15} className="shrink-0" />{cancha.ubicacion}</p>
                     <p className="mt-3 text-xs font-semibold uppercase text-slate-500">{cancha.deporte}</p>
+                    <p className="mt-1 text-sm text-slate-600">Categoría: {cancha.categoria}</p>
                     <p className="mt-1 text-sm font-semibold text-emerald-800">${Number(cancha.precio_hora).toFixed(2)} / hora</p>
                   </div>
                   <div className="flex shrink-0 gap-1">

@@ -4,7 +4,7 @@ Base de datos relacional implementada en PostgreSQL mediante Prisma ORM.
 
 ## Tablas y Estructura
 * **usuarios**: id_usuario (PK), nombre, apellido, correo (unico), password_hash, rol (jugador, propietario, administrador), telefono, estado, fecha_registro.
-* **canchas**: id_cancha (PK), id_propietario (FK -> usuarios), nombre, ubicacion, latitud, longitud, deporte, precio_hora, fecha_registro. Las coordenadas se verifican contra el departamento de Cochabamba, Bolivia. La capacidad de jugadores ya no se configura en la cancha.
+* **canchas**: id_cancha (PK), id_propietario (FK -> usuarios), nombre, ubicacion, latitud, longitud, deporte, categoria (obligatoria, hasta 40 caracteres), precio_hora (mayor que 0 y hasta Bs 5.000, con restricción en el servicio y en PostgreSQL), fecha_registro. Las coordenadas se verifican contra el departamento de Cochabamba, Bolivia. La capacidad de jugadores ya no se configura en la cancha.
 * **horarios**: id_horario (PK), id_cancha (FK -> canchas), dia_semana (0 domingo a 6 sabado), hora_inicio y hora_fin. Cada fila registra un intervalo reservable; las horas sin una fila correspondiente no están disponibles.
 * **reservas**: id_reserva (PK), id_usuario (FK -> usuarios), id_cancha (FK -> canchas), fecha, hora_inicio, hora_fin, monto_total, estado (pendiente/confirmada/cancelada/completada), fecha_creacion. Las reservas pendientes y confirmadas ocupan la franja y las canceladas la liberan. Una reserva pasa a confirmada cuando se aprueba o captura su pago.
 * **pagos**: id_pago (PK), id_reserva (FK -> reservas), monto, metodo_pago, referencia, comprobante_url, estado, verificado_por (FK -> usuarios), fecha_pago, fecha_verificacion. Al aprobar un pago, la reserva asociada se confirma automaticamente.

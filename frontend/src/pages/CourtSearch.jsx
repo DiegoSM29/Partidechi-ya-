@@ -267,6 +267,7 @@ const CourtSearch = () => {
                       {cancha.deporte}
                     </span>
                   </div>
+                  <p className="mt-2 text-sm text-slate-600">Categoría: {cancha.categoria}</p>
                   <div className="mt-4 flex items-center justify-between">
                     <p className="text-lg font-semibold text-emerald-800">
                       Bs. {Number(cancha.precio_hora).toFixed(2)}{" "}

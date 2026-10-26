@@ -24,6 +24,7 @@ const FORM_VACIO = {
   latitud: null,
   longitud: null,
   deporte: "",
+  categoria: "",
   precio_hora: "",
 };
 
@@ -60,6 +61,7 @@ const CourtForm = () => {
           latitud: coordenadasValidas ? latitud : null,
           longitud: coordenadasValidas ? longitud : null,
           deporte: cancha.deporte,
+          categoria: cancha.categoria || "",
           precio_hora: String(cancha.precio_hora),
         });
       } catch (e) {
@@ -94,10 +96,19 @@ const CourtForm = () => {
       nuevosErrores.ubicacion = "Marca la ubicación en el mapa para completar la dirección.";
     }
     if (!form.deporte) nuevosErrores.deporte = "Selecciona el deporte de la cancha.";
+    if (!form.categoria.trim()) {
+      nuevosErrores.categoria = "Indica la categoría de la cancha.";
+    } else if (form.categoria.trim().length > 40) {
+      nuevosErrores.categoria = "La categoría no puede superar 40 caracteres.";
+    }
     if (form.precio_hora.trim() === "") {
       nuevosErrores.precio_hora = "Indica cuánto cuesta alquilarla por hora.";
-    } else if (!Number.isFinite(Number(form.precio_hora)) || Number(form.precio_hora) < 0) {
-      nuevosErrores.precio_hora = "Ingresa un precio válido, igual o mayor que cero.";
+    } else if (
+      !Number.isFinite(Number(form.precio_hora)) ||
+      Number(form.precio_hora) <= 0 ||
+      Number(form.precio_hora) > 5000
+    ) {
+      nuevosErrores.precio_hora = "El precio debe ser mayor que cero y no superar Bs 5.000.";
     }
     setErrores(nuevosErrores);
     if (Object.keys(nuevosErrores).length > 0) return;
@@ -109,6 +120,7 @@ const CourtForm = () => {
       latitud: form.latitud,
       longitud: form.longitud,
       deporte: form.deporte,
+      categoria: form.categoria.trim(),
       precio_hora: Number(form.precio_hora),
     };
 
@@ -196,10 +208,13 @@ const CourtForm = () => {
               {DEPORTES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
             </select>
           </Campo>
+          <Campo id="court-category" etiqueta="Categoría *" error={errores.categoria}>
+            <input required maxLength={40} id="court-category" name="categoria" value={form.categoria} onChange={handleChange} placeholder="Ej. Techada, exterior o profesional" aria-invalid={Boolean(errores.categoria)} aria-describedby={errores.categoria ? "court-category-error" : undefined} className={inputCls(Boolean(errores.categoria))} />
+          </Campo>
           <Campo id="court-price" etiqueta="Precio por hora *" error={errores.precio_hora}>
             <div className={`flex overflow-hidden rounded-xl border focus-within:ring-2 focus-within:ring-emerald-500 ${errores.precio_hora ? "border-red-400" : "border-slate-300"}`}>
               <span className="flex items-center border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">Bs</span>
-              <input required id="court-price" type="number" min="0" step="0.01" name="precio_hora" value={form.precio_hora} onChange={handleChange} placeholder="0.00" aria-invalid={Boolean(errores.precio_hora)} aria-describedby={errores.precio_hora ? "court-price-error" : undefined} className="w-full min-w-0 px-3.5 py-2.5 text-sm text-slate-900 outline-none" />
+              <input required id="court-price" type="number" min="0.01" max="5000" step="0.01" name="precio_hora" value={form.precio_hora} onChange={handleChange} placeholder="0.00" aria-invalid={Boolean(errores.precio_hora)} aria-describedby={errores.precio_hora ? "court-price-error" : undefined} className="w-full min-w-0 px-3.5 py-2.5 text-sm text-slate-900 outline-none" />
             </div>
           </Campo>
           <button type="submit" disabled={guardando || (editando && !form.nombre)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60">

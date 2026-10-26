@@ -79,17 +79,22 @@ Para detener los servicios conserva los datos de PostgreSQL con `docker compose 
 
 ## Gestion de Canchas
 
-Los propietarios pueden registrar, consultar, editar y eliminar sus propias canchas. Cada cancha guarda nombre, ubicacion, latitud, longitud, deporte, precio por hora, número máximo de jugadores e identificador del propietario. Las rutas se configuran correctamente para evitar conflictos entre `/mine` y `/:id`.
+Los propietarios pueden registrar, consultar, editar y eliminar sus propias canchas. Cada cancha guarda nombre, ubicacion, latitud, longitud, deporte, categoria (obligatoria, hasta 40 caracteres), precio por hora (mayor que cero y hasta Bs 5.000, validado también por PostgreSQL) e identificador del propietario. Las rutas se configuran correctamente para evitar conflictos entre `/mine` y `/:id`.
 
 Los deportes permitidos son futbol 5, futbol 8, futbol 11, wally, padel y fronton. El servidor valida los campos y restringe las operaciones de administracion al propietario autenticado de cada cancha.
 
 | Metodo | Endpoint | Acceso | Descripcion |
 |---|---|---|---|
 | GET | `/api/v1/courts` | Publico | Consultar canchas disponibles |
+| GET | `/api/v1/courts/:id` | Publico | Consultar una cancha por ID, incluida su categoria |
 | GET | `/api/v1/courts/mine` | Propietario | Consultar las canchas propias |
 | POST | `/api/v1/courts` | Propietario | Registrar una cancha |
-| PATCH | `/api/v1/courts/:id` | Propietario | Editar una cancha propia |
+| PATCH/PUT | `/api/v1/courts/:id` | Propietario | Editar una cancha propia |
 | DELETE | `/api/v1/courts/:id` | Propietario | Eliminar una cancha propia |
+
+La categoria se persiste en la misma tabla `canchas`, se devuelve en las consultas y debe enviarse al crear una cancha. Los ejemplos de API y SQL están en `backend/examples/categoria-cancha.http` y `backend/examples/consultar-categoria-cancha.sql`.
+
+El precio por hora debe ser mayor que cero y no superar Bs 5.000; el servicio valida el rango y PostgreSQL lo protege con una restriccion `CHECK`. Para demostrar los casos de la ficha con Postman, importa `backend/examples/limite-precio.postman_collection.json`; la prueba SQL controlada está en `backend/examples/probar-restriccion-precio.sql`.
 
 Las altas y cambios de ubicacion requieren direccion, latitud y longitud. El backend verifica que el punto corresponda al departamento de Cochabamba, Bolivia, mediante geocodificacion inversa de Nominatim; una ubicacion fuera del departamento se rechaza.
 

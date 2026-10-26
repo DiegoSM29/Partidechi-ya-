@@ -37,7 +37,7 @@ const findMany = (where = {}, client = prisma) =>
       },
       reserva: {
         include: {
-          cancha: { select: { id_cancha: true, nombre: true, ubicacion: true, deporte: true } },
+          cancha: { select: { id_cancha: true, nombre: true, ubicacion: true, deporte: true, categoria: true } },
         },
       },
       _count: {

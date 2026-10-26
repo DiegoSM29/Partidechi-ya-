@@ -37,6 +37,7 @@ model Cancha {
   latitud           Float?
   longitud          Float?
   deporte           String    @db.VarChar(80)
+  categoria         String    @db.VarChar(40)
   precio_hora       Float
   fecha_registro    DateTime  @default(now())
   propietario       Usuario   @relation(fields: [id_propietario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)

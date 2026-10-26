@@ -1,0 +1,5 @@
+ALTER TABLE "canchas"
+ADD COLUMN "categoria" VARCHAR(40) NOT NULL DEFAULT 'General';
+
+ALTER TABLE "canchas"
+ALTER COLUMN "categoria" DROP DEFAULT;

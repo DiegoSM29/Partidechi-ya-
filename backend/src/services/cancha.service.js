@@ -7,6 +7,7 @@ const TEXT_FIELDS = {
   nombre: 100,
   ubicacion: 200,
   deporte: 80,
+  categoria: 40,
 };
 const DEPORTES_PERMITIDOS = ["futbol 5", "futbol 8", "futbol 11", "wally", "padel", "fronton"];
 
@@ -79,6 +80,20 @@ const validateInput = async (input, requiredFields = []) => {
     data[field] = value;
   }
 
+  if (input.precio_hora !== undefined) {
+    if (
+      typeof input.precio_hora !== "number" ||
+      !Number.isFinite(input.precio_hora) ||
+      input.precio_hora <= 0 ||
+      input.precio_hora > 5000
+    ) {
+      throw new ApiError(400, 'El campo "precio_hora" debe ser mayor que cero y no superar Bs 5.000');
+    }
+    data.precio_hora = input.precio_hora;
+  } else if (requiredFields.includes("precio_hora")) {
+    throw new ApiError(400, 'El campo "precio_hora" es obligatorio');
+  }
+
   const hasLocation =
     input.ubicacion !== undefined ||
     input.latitud !== undefined ||
@@ -103,19 +118,6 @@ const validateInput = async (input, requiredFields = []) => {
     data.ubicacion = ubicacion;
     data.latitud = input.latitud;
     data.longitud = input.longitud;
-  }
-
-  if (input.precio_hora !== undefined) {
-    if (
-      typeof input.precio_hora !== "number" ||
-      !Number.isFinite(input.precio_hora) ||
-      input.precio_hora < 0
-    ) {
-      throw new ApiError(400, 'El campo "precio_hora" debe ser un numero igual o mayor a cero');
-    }
-    data.precio_hora = input.precio_hora;
-  } else if (requiredFields.includes("precio_hora")) {
-    throw new ApiError(400, 'El campo "precio_hora" es obligatorio');
   }
 
   if (Object.keys(data).length === 0) {

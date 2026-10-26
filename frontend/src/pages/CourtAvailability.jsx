@@ -268,6 +268,12 @@ const CourtAvailability = () => {
                   {cancha?.deporte || disponibilidad?.cancha?.deporte}
                 </dd>
               </div>
+              <div className="rounded-lg bg-slate-50 px-4 py-3">
+                <dt className="text-xs uppercase tracking-wide text-slate-500">Categoría</dt>
+                <dd className="mt-1 text-sm font-semibold text-slate-900">
+                  {cancha?.categoria || disponibilidad?.cancha?.categoria}
+                </dd>
+              </div>
               <div className="rounded-lg bg-slate-50 px-4 py-3 sm:col-span-2">
                 <dt className="text-xs uppercase tracking-wide text-slate-500">Ubicación</dt>
                 <dd className="mt-1 text-sm text-slate-900">
