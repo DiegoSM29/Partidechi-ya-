@@ -151,12 +151,13 @@ Pasos:
 Se implementó la creación y gestión de partidos amistosos asociados a reservas confirmadas:
 
 - **Backend**
-  - Modelo `Partido` y `Participante` agregados al esquema Prisma con sus respectivas relaciones y estados. Migraciones `partidos_participantes` y `cancha_jugadores_maximos` creadas y aplicadas.
-  - Se agregó `jugadores_maximos` a `canchas` (definido por el propietario al registrar/editar la cancha). El número máximo de jugadores del partido no puede superar el límite de la cancha.
+  - Modelo `Partido` y `Participante` agregados al esquema Prisma con sus respectivas relaciones y estados. Migración `partidos_participantes` aplicada; la migración `remove_court_player_limit` elimina la capacidad configurada por el propietario en la cancha.
+  - La capacidad de participantes se define por partido y no depende de un límite establecido por el propietario de la cancha.
   - `POST /api/v1/matches` crea un partido asociado obligatoriamente a una `reserva` válida y confirmada. El deporte se toma de la cancha reservada (no editable manualmente). El organizador se agrega automáticamente como participante aceptado.
   - `GET /api/v1/matches` lista partidos públicos publicados. `GET /api/v1/matches/:id` consulta el detalle con participantes. `PATCH /api/v1/matches/:id` queda reservado al administrador para moderación: un partido creado por un jugador no puede modificarse después de su creación.
   - `DELETE /api/v1/matches/:id` permite al organizador eliminar su partido publicado únicamente cuando faltan al menos 24 horas para su inicio; el backend aplica el control de identidad y plazo.
-  - `POST /api/v1/matches/:id/join` permite unirse si hay plazas disponibles; el sistema controla el número máximo de jugadores (`jugadores_maximos`).
+  - `POST /api/v1/matches/:id/join` permite a jugadores unirse solo a partidos publicados con plazas disponibles; la operación bloquea el partido en transacción para evitar sobrepasar su capacidad en solicitudes simultáneas y evita duplicados, permitiendo volver a unirse tras abandonar.
+  - La asistencia se confirma al unirse y el backend rechaza nuevas confirmaciones durante los últimos 30 minutos previos al inicio. El detalle muestra la ubicación de la cancha y un rango informativo del aporte por jugador calculado a partir del precio de la reserva, el cupo y los participantes actuales; no se inicia ningún cobro ni flujo de PayPal.
   - `POST /api/v1/matches/:id/leave` permite abandonar el partido (el organizador no puede abandonar).
   - `GET /api/v1/matches/:id/participants` consulta la lista de participantes.
   - El partido indica `nombre`, `deporte`, `fecha_hora`, `jugadores_maximos`, `descripcion`, `estado` y está asociado a una reserva confirmada cuando requiere cancha.
@@ -167,8 +168,11 @@ Se implementó la creación y gestión de partidos amistosos asociados a reserva
   - Creación de partido desde reservas (`/matches/create`), mostrando únicamente reservas confirmadas sin partido asociado. El deporte se obtiene automáticamente de la cancha reservada (campo de solo lectura). El número máximo de jugadores debe respetar el límite configurado en la cancha.
   - Antes de crear el partido se muestra un resumen de confirmación con cancha, fecha, hora, nombre, deporte, plazas y descripción, junto con la advertencia de que **el partido no podrá modificarse después**. Solo al confirmar se envía la solicitud al backend.
   - La barra superior resalta la pestaña activa (Buscar canchas, Partidos, Crear partido, Mis canchas, Reservas o Perfil), incluyendo las vistas de detalle y subrutas de cada sección.
-  - El propietario puede definir `jugadores_maximos` al registrar/editar su cancha.
+  - El propietario ya no configura un límite de jugadores en la cancha; el organizador establece la capacidad del encuentro al crear cada partido.
+  - El detalle del partido actualiza participantes y plazas disponibles después de unirse, e impide un segundo registro del mismo usuario.
   - Vista de detalle del partido con lista de participantes, control de plazas, opción para unirse o abandonar y eliminación por el organizador con un mínimo de 24 horas de anticipación.
+  - Al confirmar asistencia se muestra la ubicación y el rango estimado de costo compartido de la reserva, junto al límite de 30 minutos; es informativo y no requiere pago.
+  - Se corrigió la carga del detalle de reserva y la respuesta de creación del backend para que el acceso "Organizar partido" envíe el identificador de reserva y abra correctamente el partido creado.
   - El filtro por precio máximo muestra canchas con precio menor o igual al valor ingresado y permite ingresar valores intermedios en incrementos de Bs. 1.
 
 ## Frontend de Canchas

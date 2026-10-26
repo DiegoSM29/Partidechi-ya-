@@ -193,18 +193,8 @@ const CreateMatch = () => {
                 value={form.jugadores_maximos}
                 onChange={handleChange}
                 required
-                placeholder={
-                  reservaSeleccionada?.cancha?.jugadores_maximos
-                    ? `Máx. según cancha: ${reservaSeleccionada.cancha.jugadores_maximos}`
-                    : ""
-                }
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
               />
-              {reservaSeleccionada?.cancha?.jugadores_maximos ? (
-                <p className="mt-1 text-xs text-slate-500">
-                  Máximo permitido por la cancha: {reservaSeleccionada.cancha.jugadores_maximos}
-                </p>
-              ) : null}
             </div>
           </div>
 

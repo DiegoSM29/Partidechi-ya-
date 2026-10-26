@@ -115,7 +115,13 @@ El flujo de pago del jugador (`/reservations/:id/pay`) captura el pago de PayPal
 
 ## Partidos Amistosos y Navegacion
 
-La creacion de partidos (`/matches/create`) muestra un resumen de confirmacion antes de enviar la solicitud: reserva, cancha, fecha, hora, nombre, deporte, maximo de jugadores y descripcion. La pantalla advierte que, una vez creado, el partido no podra modificarse. El backend rechaza las actualizaciones del organizador; solo un administrador puede intervenir para moderar el partido.
+La creacion de partidos (`/matches/create`) muestra un resumen de confirmacion antes de enviar la solicitud: reserva, cancha, fecha, hora, nombre, deporte, capacidad del partido y descripcion. La capacidad se establece por partido; el propietario ya no configura un limite de jugadores para la cancha. La pantalla advierte que, una vez creado, el partido no podra modificarse. El backend rechaza las actualizaciones del organizador; solo un administrador puede intervenir para moderar el partido.
+
+En el detalle del partido, los jugadores pueden unirse solo si el encuentro sigue publicado y tiene plazas libres. La capacidad disponible se actualiza al confirmar la inscripcion; no se duplican participantes, y el backend serializa las inscripciones para evitar exceder el cupo ante solicitudes simultaneas. Un participante que abandono puede volver a unirse si queda espacio.
+
+La asistencia se confirma al unirse y solo puede confirmarse hasta 30 minutos antes del inicio. Antes de unirse, el jugador ve un rango informativo del aporte por persona y puede abrir un mapa de la cancha; estos controles no aparecen como aviso de pago para otros roles ni para quienes ya confirmaron. No se cobra ni se abre PayPal desde la confirmacion de asistencia. El enlace "Organizar partido" conserva el identificador de la reserva y recibe la respuesta del endpoint de creacion con la estructura esperada.
+
+En `/courts/:id/schedules`, las franjas nuevas se agregan primero a una lista temporal. Solo se guardan en el servidor al pulsar "Guardar horarios"; las franjas pendientes se pueden quitar antes de guardarlas.
 
 La barra superior resalta la pestaña activa con fondo y borde verde:
 

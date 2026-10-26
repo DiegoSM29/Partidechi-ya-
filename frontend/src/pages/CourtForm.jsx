@@ -25,7 +25,6 @@ const FORM_VACIO = {
   longitud: null,
   deporte: "",
   precio_hora: "",
-  jugadores_maximos: "",
 };
 
 const CourtForm = () => {
@@ -62,7 +61,6 @@ const CourtForm = () => {
           longitud: coordenadasValidas ? longitud : null,
           deporte: cancha.deporte,
           precio_hora: String(cancha.precio_hora),
-          jugadores_maximos: cancha.jugadores_maximos !== undefined && cancha.jugadores_maximos !== null ? String(cancha.jugadores_maximos) : "",
         });
       } catch (e) {
         setError(getApiError(e));
@@ -112,7 +110,6 @@ const CourtForm = () => {
       longitud: form.longitud,
       deporte: form.deporte,
       precio_hora: Number(form.precio_hora),
-      jugadores_maximos: form.jugadores_maximos === "" || form.jugadores_maximos === null ? undefined : Number(form.jugadores_maximos),
     };
 
     try {
@@ -204,9 +201,6 @@ const CourtForm = () => {
               <span className="flex items-center border-r border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">Bs</span>
               <input required id="court-price" type="number" min="0" step="0.01" name="precio_hora" value={form.precio_hora} onChange={handleChange} placeholder="0.00" aria-invalid={Boolean(errores.precio_hora)} aria-describedby={errores.precio_hora ? "court-price-error" : undefined} className="w-full min-w-0 px-3.5 py-2.5 text-sm text-slate-900 outline-none" />
             </div>
-          </Campo>
-          <Campo id="court-players" etiqueta="Número máximo de jugadores" error={errores.jugadores_maximos}>
-            <input id="court-players" type="number" min="1" step="1" name="jugadores_maximos" value={form.jugadores_maximos} onChange={handleChange} placeholder="10" className={inputCls(Boolean(errores.jugadores_maximos))} />
           </Campo>
           <button type="submit" disabled={guardando || (editando && !form.nombre)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60">
             {guardando ? <Spinner className="h-4 w-4 text-white" /> : <Save size={16} />}

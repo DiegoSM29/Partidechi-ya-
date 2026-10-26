@@ -12,6 +12,9 @@ const findByPartidoAndUsuario = (id_partido, id_usuario, client = prisma) =>
 
 const create = (data, client = prisma) => client.participante.create({ data });
 
+const countAccepted = (id_partido, client = prisma) =>
+  client.participante.count({ where: { id_partido, estado: "ACEPTADO" } });
+
 const update = (id_participante, data, client = prisma) =>
   client.participante.update({ where: { id_participante }, data });
 
@@ -26,4 +29,4 @@ const findByPartido = (id_partido, client = prisma) =>
     orderBy: { fecha_union: "asc" },
   });
 
-module.exports = { findByPartidoAndUsuario, create, update, findByPartido };
+module.exports = { findByPartidoAndUsuario, create, countAccepted, update, findByPartido };

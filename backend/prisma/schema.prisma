@@ -38,7 +38,6 @@ model Cancha {
   longitud          Float?
   deporte           String    @db.VarChar(80)
   precio_hora       Float
-  jugadores_maximos Int?
   fecha_registro    DateTime  @default(now())
   propietario       Usuario   @relation(fields: [id_propietario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
   horarios          Horario[]

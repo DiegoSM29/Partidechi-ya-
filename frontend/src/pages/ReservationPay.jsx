@@ -36,18 +36,20 @@ const ReservationPay = () => {
     setLoading(true);
     setError("");
     try {
-      const [{ data: amountRes }, { data: resRes }] = await Promise.allSettled([
+      const [amountResult, reservationResult] = await Promise.allSettled([
         api.get(`/reservations/${id}/payments/amount`),
         api.get(`/reservations/${id}`),
       ]);
-      if (amountRes.status === "fulfilled") {
-        setAmount(amountRes.value?.data?.amount);
-        if (amountRes.value?.data?.reserva) {
-          setReserva(amountRes.value?.data?.reserva);
+      if (amountResult.status === "fulfilled") {
+        setAmount(amountResult.value?.data?.data?.amount);
+        if (amountResult.value?.data?.data?.reserva) {
+          setReserva(amountResult.value.data.data.reserva);
         }
       }
-      if (resRes.status === "fulfilled") {
-        setReserva(resRes.value?.data?.reserva);
+      if (reservationResult.status === "fulfilled") {
+        setReserva(reservationResult.value?.data?.data?.reserva);
+      } else if (!reserva) {
+        throw reservationResult.reason;
       }
     } catch (err) {
       setError(getApiError(err));
@@ -182,7 +184,7 @@ const ReservationPay = () => {
             {user?.rol === "JUGADOR" ? (
               <Link
                 to="/matches/create"
-                state={{ id_reserva: reserva?.id_reserva }}
+                state={{ id_reserva: reserva?.id_reserva ?? Number(id) }}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800"
               >
                 <Trophy size={16} />
