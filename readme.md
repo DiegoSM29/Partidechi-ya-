@@ -46,6 +46,27 @@ npx prisma generate
 npm run dev
 El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 
+## Ejecución con Docker
+
+Requisitos: Docker Desktop (o Docker Engine) con Docker Compose v2.
+
+1. Copia `.env.docker.example` a `.env` en la raíz del repositorio.
+2. Cambia `POSTGRES_PASSWORD` y `JWT_SECRET` por valores propios. Para la contraseña de PostgreSQL usa caracteres URL-safe para que la conexión de Prisma se interprete correctamente.
+3. Desde la raíz del repositorio ejecuta:
+
+```sh
+docker compose up --build
+```
+
+Compose inicia PostgreSQL con almacenamiento persistente, espera a que esté disponible, aplica las migraciones Prisma y levanta la API y el frontend.
+
+- Frontend: `http://localhost:8080` (o el puerto configurado en `FRONTEND_PORT`).
+- API: `http://localhost:4000/api/v1` (o el puerto configurado en `BACKEND_PORT`).
+- Salud de la API: `http://localhost:4000/api/v1/health`.
+- PostgreSQL: `localhost:5432` (o el puerto configurado en `POSTGRES_PORT`).
+
+Para detener los servicios conserva los datos de PostgreSQL con `docker compose down`. **No uses `docker compose down -v` salvo que quieras borrar permanentemente el volumen y todos los datos de esa base Docker.** Los secretos del archivo `.env` no deben compartirse ni subirse al repositorio.
+
 ## Endpoints Principales de la API
 * Autenticacion: /api/v1/auth/register, /api/v1/auth/login
 * Usuarios: /api/v1/users/me
