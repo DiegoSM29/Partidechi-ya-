@@ -113,7 +113,7 @@ const ReservationCreate = () => {
             {loading ? "Solicitando reserva..." : "Solicitar reserva y pasar a pago"}
           </button>
           <p className="mt-2 text-xs text-slate-500">
-            El sistema valida la disponibilidad nuevamente al crear la reserva. Puedes reservar más de una hora (bloques consecutivos). La cancha quedará reservada solo tras la confirmación del pago por el propietario.
+            El sistema valida la disponibilidad nuevamente al crear la reserva. Puedes reservar más de una hora (bloques consecutivos). La cancha quedará pendiente hasta registrar el pago; una vez confirmado el pago, la reserva se confirma automáticamente.
           </p>
         </form>
 
@@ -124,7 +124,7 @@ const ReservationCreate = () => {
             <span className="text-2xl font-bold text-emerald-800">Bs. {montoTotal.toFixed(2)}</span>
           </div>
           <p className="mt-3 text-xs text-slate-500">
-            La reserva quedará en estado PENDIENTE. Debes registrar el pago (simulación PayPal) y esperar la verificación del propietario para que sea CONFIRMADA.
+            La reserva queda en estado PENDIENTE hasta que se registre el pago. Al aprobarse o capturarse el pago, se confirma automáticamente y podrás organizar un partido con esa reserva.
           </p>
         </aside>
       </div>

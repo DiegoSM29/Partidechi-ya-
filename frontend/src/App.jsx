@@ -15,6 +15,10 @@ import CourtSearch from "./pages/CourtSearch";
 import CourtAvailability from "./pages/CourtAvailability";
 import ReservationCreate from "./pages/ReservationCreate";
 import ReservationPay from "./pages/ReservationPay";
+import OwnerReservations from "./pages/OwnerReservations";
+import Matches from "./pages/Matches";
+import MatchDetail from "./pages/MatchDetail";
+import CreateMatch from "./pages/CreateMatch";
 import NotFound from "./pages/NotFound";
 
 // Raiz: envia al usuario a su destino segun sesion/rol
@@ -121,10 +125,58 @@ const App = () => (
           }
         />
         <Route
+          path="/reservations/owner"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <OwnerReservations />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/reservations"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <OwnerReservations />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/reservations/:id/pay"
           element={
             <ProtectedRoute>
               <ReservationPay />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/matches"
+          element={
+            <ProtectedRoute>
+              <Matches />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/matches/create"
+          element={
+            <ProtectedRoute rol="JUGADOR">
+              <CreateMatch />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/matches/new"
+          element={
+            <ProtectedRoute rol="JUGADOR">
+              <CreateMatch />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/matches/:id"
+          element={
+            <ProtectedRoute>
+              <MatchDetail />
             </ProtectedRoute>
           }
         />

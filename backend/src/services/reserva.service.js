@@ -13,12 +13,65 @@ const {
   todayDateOnly,
 } = require("../utils/scheduleTime");
 
+const ESTADOS_RESERVA = ["PENDIENTE", "CONFIRMADA", "CANCELADA", "COMPLETADA"];
+const ESTADOS_PAGO = ["PENDIENTE", "APROBADO", "RECHAZADO", "REEMBOLSADO"];
+
 const parseId = (value, entidad = "reserva") => {
   const id = Number(value);
   if (!Number.isInteger(id) || id < 1) {
     throw new ApiError(400, `El identificador de la ${entidad} no es valido`);
   }
   return id;
+};
+
+const parseEnumFilter = (value, permitidos, entidad) => {
+  if (value === undefined || value === null || value === "") return null;
+  const normalizado = String(value).trim().toUpperCase();
+  if (!permitidos.includes(normalizado)) {
+    throw new ApiError(
+      400,
+      `El estado de ${entidad} debe ser uno de: ${permitidos.join(", ")}`
+    );
+  }
+  return normalizado;
+};
+
+// Construye los filtros de consulta de reservas. El propietario solo puede
+// consultar las reservas de sus propias canchas; ese filtro se agrega despues
+// en list() y no puede ser sobrescrito por el cliente.
+const buildFilters = (input = {}) => {
+  const where = {};
+  const idCanchaRaw =
+    input.id_cancha ?? input.cancha_id ?? input.court_id ?? input.idCancha;
+
+  if (idCanchaRaw !== undefined && idCanchaRaw !== null && idCanchaRaw !== "") {
+    where.id_cancha = parseId(idCanchaRaw, "cancha");
+  }
+
+  const estado = parseEnumFilter(input.estado ?? input.status, ESTADOS_RESERVA, "reserva");
+  if (estado) where.estado = estado;
+
+  const estadoPagoRaw = input.estado_pago ?? input.payment_status ?? input.estadoPago;
+  if (
+    estadoPagoRaw !== undefined &&
+    estadoPagoRaw !== null &&
+    String(estadoPagoRaw).trim() !== ""
+  ) {
+    const estadoPago = String(estadoPagoRaw).trim().toUpperCase();
+    if (estadoPago === "SIN_PAGO" || estadoPago === "SIN_PAGOS") {
+      where.pagos = { none: {} };
+    } else {
+      if (!ESTADOS_PAGO.includes(estadoPago)) {
+        throw new ApiError(
+          400,
+          `El estado de pago debe ser uno de: ${ESTADOS_PAGO.join(", ")}, SIN_PAGO`
+        );
+      }
+      where.pagos = { some: { estado: estadoPago } };
+    }
+  }
+
+  return where;
 };
 
 const parseReservationInput = (input = {}) => {
@@ -151,16 +204,20 @@ const assertCanAccess = (usuario, reserva) => {
   throw new ApiError(403, "No tiene permisos para consultar esta reserva");
 };
 
-const list = async (usuario) => {
+const list = async (usuario, filters = {}) => {
+  const where = buildFilters(filters);
+
   if (usuario.rol === "ADMINISTRADOR") {
-    return reservaRepository.findMany({});
+    return reservaRepository.findMany(where);
   }
   if (usuario.rol === "PROPIETARIO") {
-    return reservaRepository.findMany({
-      cancha: { id_propietario: usuario.id_usuario },
-    });
+    // Se fuerza la pertenencia por propietario: aunque el cliente envie un
+    // id_cancha ajeno, la consulta no devuelve reservas de canchas ajenas.
+    where.cancha = { id_propietario: usuario.id_usuario };
+    return reservaRepository.findMany(where);
   }
-  return reservaRepository.findMany({ id_usuario: usuario.id_usuario });
+  where.id_usuario = usuario.id_usuario;
+  return reservaRepository.findMany(where);
 };
 
 const getById = async (usuario, rawId) => {

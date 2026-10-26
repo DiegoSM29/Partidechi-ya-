@@ -11,35 +11,38 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario      Int           @id @default(autoincrement())
-  nombre          String        @db.VarChar(100)
-  apellido        String        @db.VarChar(100)
-  correo          String        @unique @db.VarChar(150)
-  password_hash   String        @db.VarChar(255)
-  rol             Rol           @default(JUGADOR)
-  telefono        String?       @db.VarChar(30)
-  estado          EstadoUsuario @default(ACTIVO)
-  fecha_registro  DateTime      @default(now())
-  canchas         Cancha[]
-  reservas        Reserva[]
-  pagosVerificados Pago[]       @relation("PagosVerificados")
+  id_usuario        Int            @id @default(autoincrement())
+  nombre            String         @db.VarChar(100)
+  apellido          String         @db.VarChar(100)
+  correo            String         @unique @db.VarChar(150)
+  password_hash     String         @db.VarChar(255)
+  rol               Rol            @default(JUGADOR)
+  telefono          String?        @db.VarChar(30)
+  estado            EstadoUsuario  @default(ACTIVO)
+  fecha_registro    DateTime       @default(now())
+  canchas           Cancha[]
+  reservas          Reserva[]
+  pagosVerificados  Pago[]         @relation("PagosVerificados")
+  partidosOrganizados Partido[]    @relation("PartidosOrganizados")
+  participaciones   Participante[]
 
   @@map("usuarios")
 }
 
 model Cancha {
-  id_cancha      Int       @id @default(autoincrement())
-  id_propietario Int
-  nombre         String    @db.VarChar(100)
-  ubicacion      String    @db.VarChar(200)
-  latitud        Float?
-  longitud       Float?
-  deporte        String    @db.VarChar(80)
-  precio_hora    Float
-  fecha_registro DateTime  @default(now())
-  propietario    Usuario   @relation(fields: [id_propietario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
-  horarios       Horario[]
-  reservas       Reserva[]
+  id_cancha         Int       @id @default(autoincrement())
+  id_propietario    Int
+  nombre            String    @db.VarChar(100)
+  ubicacion         String    @db.VarChar(200)
+  latitud           Float?
+  longitud          Float?
+  deporte           String    @db.VarChar(80)
+  precio_hora       Float
+  jugadores_maximos Int?
+  fecha_registro    DateTime  @default(now())
+  propietario       Usuario   @relation(fields: [id_propietario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  horarios          Horario[]
+  reservas          Reserva[]
 
   @@index([id_propietario])
   @@map("canchas")
@@ -73,6 +76,7 @@ model Reserva {
   usuario        Usuario       @relation(fields: [id_usuario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
   cancha         Cancha        @relation(fields: [id_cancha], references: [id_cancha], onDelete: Cascade, onUpdate: Cascade)
   pagos          Pago[]
+  partido        Partido?
 
   @@index([id_usuario])
   @@index([id_cancha, fecha])
@@ -134,4 +138,55 @@ enum EstadoUsuario {
   SUSPENDIDO @map("suspendido")
 
   @@map("estado_usuario")
+}
+
+/// Partidos amistosos asociados a una reserva
+model Partido {
+  id_partido      Int            @id @default(autoincrement())
+  id_organizador  Int
+  id_reserva      Int?           @unique
+  nombre          String         @db.VarChar(150)
+  deporte         String         @db.VarChar(80)
+  fecha_hora      DateTime
+  jugadores_maximos Int
+  descripcion     String?        @db.VarChar(500)
+  estado          EstadoPartido  @default(PUBLICADO)
+  organizador     Usuario        @relation("PartidosOrganizados", fields: [id_organizador], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  reserva         Reserva?       @relation(fields: [id_reserva], references: [id_reserva], onDelete: Restrict, onUpdate: Cascade)
+  participantes   Participante[]
+
+  @@index([id_organizador])
+  @@index([id_reserva])
+  @@map("partidos")
+}
+
+/// Participantes de un partido
+model Participante {
+  id_participante Int             @id @default(autoincrement())
+  id_partido      Int
+  id_usuario      Int
+  estado          EstadoParticipante @default(ACEPTADO)
+  fecha_union     DateTime         @default(now())
+  partido         Partido          @relation(fields: [id_partido], references: [id_partido], onDelete: Cascade, onUpdate: Cascade)
+  usuario         Usuario          @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([id_partido, id_usuario])
+  @@index([id_usuario])
+  @@map("participantes")
+}
+
+enum EstadoPartido {
+  PUBLICADO @map("publicado")
+  CANCELADO @map("cancelado")
+  COMPLETADO @map("completado")
+
+  @@map("estado_partido")
+}
+
+enum EstadoParticipante {
+  ACEPTADO @map("aceptado")
+  RECHAZADO @map("rechazado")
+  ABANDONADO @map("abandonado")
+
+  @@map("estado_participante")
 }

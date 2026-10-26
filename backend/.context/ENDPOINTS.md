@@ -68,12 +68,12 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | Método | Endpoint | Autenticación | Descripción |
 |---|---|---|---|
 | `POST` | `/api/v1/reservations` | Jugador | Solicitar una reserva (valida disponibilidad con transacciones anti-solapamiento). |
-| `GET` | `/api/v1/reservations` | Sí (JWT) | Consultar reservas autorizadas del usuario o del propietario. |
-| `GET` | `/api/v1/reservations/:id` | Sí (JWT) | Consultar el detalle de una reserva autorizada. |
+| `GET` | `/api/v1/reservations` | Sí (JWT) | Consultar reservas autorizadas. Acepta `id_cancha`, `estado` y `estado_pago`. El propietario solo obtiene reservas de sus canchas. |
+| `GET` | `/api/v1/reservations/:id` | Sí (JWT) | Consultar el detalle de una reserva autorizada, incluyendo pagos y datos del jugador. |
 | `POST` | `/api/v1/reservations/:id/cancel` | Sí (JWT) | Solicitar la cancelación de una reserva. |
 | `POST` | `/api/v1/reservations/:id/confirm` | Propietario / Admin | Confirmar una reserva cuando se cumplan las condiciones. |
 
-> **Regla de negocio:** El endpoint de confirmación de reservas comprueba el pago, la disponibilidad y los permisos del usuario. No permite que un jugador confirme arbitrariamente una reserva sin la validación previa del pago exigido.
+> **Regla de negocio:** El endpoint de confirmación de reservas comprueba el pago, la disponibilidad y los permisos del usuario. No permite que un jugador confirme arbitrariamente una reserva sin la validación previa del pago exigido. Cuando un pago se aprueba o se captura correctamente, la reserva se confirma automáticamente.
 
 ---
 
@@ -83,10 +83,11 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 |---|---|---|---|
 | `POST` | `/api/v1/reservations/:id/payments` | Jugador | Registrar un pago o intento de pago (subida de comprobante/referencia). |
 | `GET` | `/api/v1/reservations/:id/payments` | Sí (JWT) | Consultar los pagos asociados a una reserva autorizada. |
-| `POST` | `/api/v1/payments/:id/verify` | Propietario / Admin | Verificar manualmente un pago y actualizar el estado de la reserva. |
+| `POST` | `/api/v1/reservations/:id/payments/paypal/capture` | Sí (JWT) | Capturar la orden de PayPal y confirmar automáticamente la reserva. |
+| `POST` | `/api/v1/payments/:id/verify` | Propietario / Admin | Verificar manualmente un pago y actualizar el estado de la reserva. Al aprobar, la reserva pasa a `CONFIRMADA`. |
 | `POST` | `/api/v1/payments/webhook` | Firma / Secreta | Recibir notificaciones automáticas de una pasarela externa. |
 
-> **Regla de seguridad:** El endpoint de verificación está estrictamente protegido. En caso de integrar pasarelas externas, las notificaciones recibidas en el webhook deben validar la firma digital para comprobar su autenticidad.
+> **Regla de seguridad:** El endpoint de verificación está estrictamente protegido. En caso de integrar pasarelas externas, las notificaciones recibidas en el webhook deben validar la firma digital para comprobar su autenticidad. El propietario solo puede verificar pagos de reservas de sus propias canchas.
 
 ---
 
@@ -97,10 +98,13 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | `POST` | `/api/v1/matches` | Jugador | Crear un partido asociado obligatoriamente a una reserva confirmada. |
 | `GET` | `/api/v1/matches` | No | Consultar partidos públicos publicados. |
 | `GET` | `/api/v1/matches/:id` | No | Consultar la información detallada de un partido. |
-| `PATCH` | `/api/v1/matches/:id` | Organizador | Actualizar información autorizada del partido. |
+| `DELETE` | `/api/v1/matches/:id` | Organizador autenticado | Eliminar un partido publicado propio con al menos 24 horas de anticipación. |
+| `PATCH` | `/api/v1/matches/:id` | Administrador | Moderar un partido. El organizador no puede modificar un partido después de crearlo. |
 | `POST` | `/api/v1/matches/:id/join` | Jugador | Solicitar incorporarse a un partido si existen plazas disponibles. |
 | `POST` | `/api/v1/matches/:id/leave` | Jugador | Abandonar un partido previamente unido. |
 | `GET` | `/api/v1/matches/:id/participants` | No | Consultar la lista de participantes del partido. |
+
+> **Regla de negocio:** Solo el organizador puede eliminar su partido publicado y únicamente si faltan al menos 24 horas para su inicio. El servidor valida el plazo y la identidad, aunque la interfaz oculte la opción cuando ya no se cumple la condición.
 
 ---
 

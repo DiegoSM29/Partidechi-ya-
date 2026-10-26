@@ -19,6 +19,18 @@ const paypalSimulate = asyncHandler(async (req, res) => {
   });
 });
 
+const paypalCapture = asyncHandler(async (req, res) => {
+  const result = await pagoService.paypalCapture(req.user, req.params.id, req.body);
+  const message = result.alreadyConfirmed
+    ? "La reserva ya se encontraba confirmada"
+    : "Pago confirmado y reserva confirmada automáticamente";
+  res.status(200).json({
+    success: true,
+    message,
+    data: result,
+  });
+});
+
 const registerPayment = asyncHandler(async (req, res) => {
   const result = await pagoService.registerPayment(req.user, req.params.id, req.body);
   res.status(201).json({
@@ -46,4 +58,4 @@ const verifyPayment = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { getAmount, paypalSimulate, registerPayment, listPayments, verifyPayment };
+module.exports = { getAmount, paypalSimulate, paypalCapture, registerPayment, listPayments, verifyPayment };
