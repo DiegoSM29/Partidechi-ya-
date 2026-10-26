@@ -118,21 +118,6 @@ const validateInput = async (input, requiredFields = []) => {
     throw new ApiError(400, 'El campo "precio_hora" es obligatorio');
   }
 
-  if (input.jugadores_maximos !== undefined) {
-    if (input.jugadores_maximos === null || input.jugadores_maximos === "") {
-      data.jugadores_maximos = null;
-    } else {
-      if (
-        typeof input.jugadores_maximos !== "number" ||
-        !Number.isInteger(input.jugadores_maximos) ||
-        input.jugadores_maximos < 1
-      ) {
-        throw new ApiError(400, 'El campo "jugadores_maximos" debe ser un numero entero mayor a cero');
-      }
-      data.jugadores_maximos = input.jugadores_maximos;
-    }
-  }
-
   if (Object.keys(data).length === 0) {
     throw new ApiError(400, "Indique al menos un dato para la cancha");
   }

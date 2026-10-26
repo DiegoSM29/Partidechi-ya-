@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Clock, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock, Plus, Save, Trash2 } from "lucide-react";
 import api, { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
@@ -34,6 +34,7 @@ const CourtSchedule = () => {
   const { id } = useParams();
   const [cancha, setCancha] = useState(null);
   const [horarios, setHorarios] = useState([]);
+  const [horariosPendientes, setHorariosPendientes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(null);
@@ -121,21 +122,49 @@ const CourtSchedule = () => {
       return;
     }
 
-    setGuardando(true);
-    try {
-      await api.post(`/courts/${id}/schedules`, {
+    setHorariosPendientes((actuales) => [
+      ...actuales,
+      {
+        id_local: crypto.randomUUID(),
         dia_semana: Number(form.dia_semana),
         hora_inicio: form.hora_inicio,
         hora_fin: form.hora_fin,
-      });
-      setExito("Horario de funcionamiento registrado correctamente. Las demás horas no estarán disponibles para reservar.");
+        pendiente: true,
+      },
+    ]);
+    setExito("Horario agregado a la lista. Presiona “Guardar horarios” para registrarlo.");
+  };
+
+  const guardarHorarios = async () => {
+    if (horariosPendientes.length === 0) return;
+
+    setGuardando(true);
+    setError("");
+    setExito("");
+    try {
+      await api.post(
+        `/courts/${id}/schedules`,
+        horariosPendientes.map(({ dia_semana, hora_inicio, hora_fin }) => ({
+          dia_semana,
+          hora_inicio,
+          hora_fin,
+        }))
+      );
+      setHorariosPendientes([]);
       await recargarHorarios();
       setRevision((valor) => valor + 1);
+      setExito("Horarios guardados correctamente. Las demás horas no estarán disponibles para reservar.");
     } catch (e) {
       setError(getApiError(e));
     } finally {
       setGuardando(false);
     }
+  };
+
+  const quitarHorarioPendiente = (idLocal) => {
+    setHorariosPendientes((actuales) =>
+      actuales.filter((franja) => franja.id_local !== idLocal)
+    );
   };
 
   const eliminarFranja = async (franja) => {
@@ -161,13 +190,13 @@ const CourtSchedule = () => {
     const resultado = Object.fromEntries(
       DIAS.map((dia) => [dia.value, []])
     );
-    for (const franja of horarios) {
+    for (const franja of [...horarios, ...horariosPendientes]) {
       const grupo = resultado[String(franja.dia_semana)];
       if (!grupo) continue;
       grupo.push(franja);
     }
     return resultado;
-  }, [horarios]);
+  }, [horarios, horariosPendientes]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -250,8 +279,8 @@ const CourtSchedule = () => {
                 disabled={guardando}
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {guardando ? <Spinner className="h-4 w-4 text-white" /> : <Plus size={16} />}
-                {guardando ? "Guardando..." : "Agregar horario"}
+                <Plus size={16} />
+                Agregar a la lista
               </button>
             </form>
           </section>
@@ -259,14 +288,15 @@ const CourtSchedule = () => {
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
-                <CalendarDays size={18} className="text-emerald-700" /> Semana configurada
+                <CalendarDays size={18} className="text-emerald-700" /> Horarios registrados y pendientes
               </h2>
               <p className="text-xs font-medium text-slate-500">
-                {horarios.length} {horarios.length === 1 ? "horario" : "horarios"}
+                {horarios.length} guardados
+                {horariosPendientes.length > 0 ? ` · ${horariosPendientes.length} por guardar` : ""}
               </p>
             </div>
 
-            {horarios.length === 0 ? (
+            {horarios.length === 0 && horariosPendientes.length === 0 ? (
               <div className="mt-5 rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
                 Aún no hay horarios configurados. Agrega al menos una franja de funcionamiento para habilitar reservas.
               </div>
@@ -281,18 +311,28 @@ const CourtSchedule = () => {
                       <div className="mt-2 flex flex-wrap gap-2">
                         {grupo.map((franja) => (
                           <span
-                            key={franja.id_horario}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 py-1 pl-2.5 pr-1 text-xs font-medium text-emerald-800"
+                            key={franja.id_horario ?? franja.id_local}
+                            className={`inline-flex items-center gap-1.5 rounded-full border py-1 pl-2.5 pr-1 text-xs font-medium ${
+                              franja.pendiente
+                                ? "border-amber-200 bg-amber-50 text-amber-800"
+                                : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            }`}
                           >
-                            {franja.hora_inicio} - {franja.hora_fin}
+                            {franja.hora_inicio} - {franja.hora_fin}{franja.pendiente ? " · por guardar" : ""}
                             <button
                               type="button"
-                              onClick={() => eliminarFranja(franja)}
-                              disabled={eliminando === franja.id_horario}
-                              aria-label={`Eliminar horario ${franja.hora_inicio} a ${franja.hora_fin} del ${dia.label}`}
-                              className="rounded-full p-1 text-emerald-700 hover:bg-emerald-200 disabled:opacity-50"
+                              onClick={() =>
+                                franja.pendiente
+                                  ? quitarHorarioPendiente(franja.id_local)
+                                  : eliminarFranja(franja)
+                              }
+                              disabled={!franja.pendiente && eliminando === franja.id_horario}
+                              aria-label={`${franja.pendiente ? "Quitar" : "Eliminar"} horario ${franja.hora_inicio} a ${franja.hora_fin} del ${dia.label}`}
+                              className="rounded-full p-1 hover:bg-white/70 disabled:opacity-50"
                             >
-                              {eliminando === franja.id_horario ? <Spinner className="h-3 w-3" /> : <Trash2 size={12} />}
+                              {!franja.pendiente && eliminando === franja.id_horario
+                                ? <Spinner className="h-3 w-3" />
+                                : <Trash2 size={12} />}
                             </button>
                           </span>
                         ))}
@@ -302,6 +342,15 @@ const CourtSchedule = () => {
                 })}
               </ul>
             )}
+            <button
+              type="button"
+              onClick={guardarHorarios}
+              disabled={guardando || horariosPendientes.length === 0}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {guardando ? <Spinner className="h-4 w-4 text-white" /> : <Save size={16} />}
+              {guardando ? "Guardando horarios..." : "Guardar horarios"}
+            </button>
           </section>
         </div>
       )}

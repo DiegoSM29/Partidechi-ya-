@@ -24,6 +24,9 @@ const findById = (id_partido, client = prisma) =>
     },
   });
 
+const lockForUpdate = (id_partido, client = prisma) =>
+  client.$queryRaw`SELECT "id_partido" FROM "partidos" WHERE "id_partido" = ${id_partido} FOR UPDATE`;
+
 const findMany = (where = {}, client = prisma) =>
   client.partido.findMany({
     where,
@@ -49,4 +52,4 @@ const update = (id_partido, data, client = prisma) =>
 const remove = (id_partido, client = prisma) =>
   client.partido.delete({ where: { id_partido } });
 
-module.exports = { create, findById, findMany, update, remove };
+module.exports = { create, findById, findMany, update, remove, lockForUpdate };

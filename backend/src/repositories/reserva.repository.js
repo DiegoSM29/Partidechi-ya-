@@ -6,7 +6,6 @@ const CANCHA_SELECT = {
   ubicacion: true,
   deporte: true,
   precio_hora: true,
-  jugadores_maximos: true,
   id_propietario: true,
 };
 

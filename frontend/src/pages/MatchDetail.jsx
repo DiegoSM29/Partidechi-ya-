@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, MapPinned, Users, UserRound, ArrowLeft, Lock, LogIn, LogOut, Trash2 } from "lucide-react";
+import { CalendarDays, MapPinned, Users, UserRound, ArrowLeft, Lock, LogIn, LogOut, Trash2, Map } from "lucide-react";
 import { deleteMatch, getMatchById, joinMatch, leaveMatch } from "../api/matches";
 import { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
 import { useAuth } from "../context/AuthContext";
+
+const CourtLocationModal = lazy(() => import("../components/CourtLocationModal"));
 
 const MatchDetail = () => {
   const { id } = useParams();
@@ -16,6 +18,8 @@ const MatchDetail = () => {
   const [error, setError] = useState("");
   const [accion, setAccion] = useState(false);
   const [eliminando, setEliminando] = useState(false);
+  const [ahora, setAhora] = useState(Date.now());
+  const [mostrarMapa, setMostrarMapa] = useState(false);
 
   const cargar = async () => {
     setLoading(true);
@@ -33,6 +37,11 @@ const MatchDetail = () => {
   useEffect(() => {
     cargar();
   }, [id]);
+
+  useEffect(() => {
+    const intervalo = window.setInterval(() => setAhora(Date.now()), 15_000);
+    return () => window.clearInterval(intervalo);
+  }, []);
 
   const formatearFecha = (fecha) => {
     try {
@@ -52,8 +61,20 @@ const MatchDetail = () => {
   const puedeEliminar =
     partido?.estado === "PUBLICADO" &&
     new Date(partido.fecha_hora).getTime() - Date.now() >= 24 * 60 * 60 * 1000;
+  const puedeConfirmarAsistencia =
+    partido?.estado === "PUBLICADO" &&
+    ahora <= new Date(partido.fecha_hora).getTime() - 30 * 60 * 1000;
   const aceptados = partido?.participantes?.filter((p) => p.estado === "ACEPTADO") || [];
   const plazasLibres = partido ? partido.jugadores_maximos - aceptados.length : 0;
+  const montoReserva = Number(partido?.reserva?.monto_total);
+  const aporteMinimo = Number.isFinite(montoReserva)
+    ? montoReserva / partido.jugadores_maximos
+    : null;
+  const aporteMaximo = Number.isFinite(montoReserva) && aceptados.length > 0
+    ? montoReserva / (aceptados.length + 1)
+    : null;
+  const formatoMoneda = (monto) =>
+    new Intl.NumberFormat("es-BO", { style: "currency", currency: "BOB" }).format(monto);
 
   const handleUnirse = async () => {
     setAccion(true);
@@ -154,7 +175,7 @@ const MatchDetail = () => {
                 {eliminando ? "Eliminando..." : "Eliminar partido"}
               </button>
             ) : null}
-            {user && !esOrganizador && partido.estado === "PUBLICADO" ? (
+            {user?.rol === "JUGADOR" && !esOrganizador && partido.estado === "PUBLICADO" ? (
               yaUnido ? (
                 <button
                   onClick={handleAbandonar}
@@ -164,19 +185,37 @@ const MatchDetail = () => {
                   <LogOut size={16} />
                   Abandonar partido
                 </button>
-              ) : plazasLibres > 0 ? (
-                <button
-                  onClick={handleUnirse}
-                  disabled={accion}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  <LogIn size={16} />
-                  Unirse al partido
-                </button>
               ) : (
-                <span className="inline-flex items-center rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-600">
-                  Sin plazas disponibles
-                </span>
+                <>
+                  {partido.reserva?.cancha ? (
+                    <button
+                      type="button"
+                      onClick={() => setMostrarMapa(true)}
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <Map size={16} />
+                      Ver mapa de la cancha
+                    </button>
+                  ) : null}
+                  {!puedeConfirmarAsistencia ? (
+                    <span className="inline-flex items-center rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-600">
+                      Cerró la confirmación de asistencia
+                    </span>
+                  ) : plazasLibres > 0 ? (
+                    <button
+                      onClick={handleUnirse}
+                      disabled={accion}
+                      className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      <LogIn size={16} />
+                      Confirmar asistencia
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-600">
+                      Sin plazas disponibles
+                    </span>
+                  )}
+                </>
               )
             ) : null}
           </div>
@@ -203,6 +242,9 @@ const MatchDetail = () => {
                 <Users size={16} className="text-slate-400" />
                 <span>{aceptados.length} / {partido.jugadores_maximos} jugadores</span>
               </div>
+              <div className="pl-6 text-slate-500">
+                Plazas disponibles: {Math.max(0, plazasLibres)}
+              </div>
             </dl>
             {partido.descripcion ? (
               <div>
@@ -213,6 +255,27 @@ const MatchDetail = () => {
             {partido.id_reserva ? (
               <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500 ring-1 ring-inset ring-slate-200">
                 Asociado a reserva #{partido.id_reserva} (confirmada)
+              </div>
+            ) : null}
+            {user?.rol === "JUGADOR" &&
+            !yaUnido &&
+            !esOrganizador &&
+            partido.estado === "PUBLICADO" &&
+            puedeConfirmarAsistencia &&
+            plazasLibres > 0 ? (
+              <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                <p className="font-semibold">Información para unirte</p>
+                {Number.isFinite(montoReserva) && partido.jugadores_maximos > 0 ? (
+                  <p>
+                    <span className="font-medium">Aporte estimado si te unes:</span>{" "}
+                    {formatoMoneda(Math.min(aporteMinimo, aporteMaximo))} –{" "}
+                    {formatoMoneda(Math.max(aporteMinimo, aporteMaximo))}, según el número
+                    total de plazas y los jugadores actuales.
+                  </p>
+                ) : null}
+                <p>
+                  Es solo un estimado informativo: no se realiza ningún cobro ni pago por PayPal.
+                </p>
               </div>
             ) : null}
             {esOrganizador ? (
@@ -260,6 +323,20 @@ const MatchDetail = () => {
             </ul>
           </div>
         </div>
+        {mostrarMapa && partido.reserva?.cancha ? (
+          <Suspense
+            fallback={
+              <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60">
+                <Spinner className="h-7 w-7 text-white" />
+              </div>
+            }
+          >
+            <CourtLocationModal
+              cancha={partido.reserva.cancha}
+              onClose={() => setMostrarMapa(false)}
+            />
+          </Suspense>
+        ) : null}
       </div>
     </div>
   );

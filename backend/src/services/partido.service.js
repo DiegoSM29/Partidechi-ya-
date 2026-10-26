@@ -37,12 +37,6 @@ const create = async (usuario, input = {}) => {
     deporte = reserva.cancha.deporte;
   }
   if (!deporte) throw new ApiError(400, "El deporte es obligatorio");
-  if (reserva.cancha?.jugadores_maximos !== undefined && reserva.cancha?.jugadores_maximos !== null) {
-    if (jugadores_maximos > reserva.cancha.jugadores_maximos) {
-      throw new ApiError(400, `El número máximo de jugadores no puede superar el límite de la cancha (${reserva.cancha.jugadores_maximos})`);
-    }
-  }
-
   // Verificar que no exista ya un partido para esta reserva
   const existing = await prisma.partido.findUnique({ where: { id_reserva } });
   if (existing) {
@@ -86,7 +80,7 @@ const create = async (usuario, input = {}) => {
     throw error;
   }
 
-  return partidoRepository.findById(partido.id_partido);
+  return { partido: await partidoRepository.findById(partido.id_partido) };
 };
 
 const list = async (filters = {}) => {
@@ -151,35 +145,56 @@ const remove = async (usuario, rawId) => {
 
 const join = async (usuario, rawId) => {
   const id_partido = parseId(rawId);
-  const partido = await partidoRepository.findById(id_partido);
-  if (!partido) throw new ApiError(404, "Partido no encontrado");
-  if (partido.estado !== "PUBLICADO") {
-    throw new ApiError(400, "No es posible unirse a un partido no publicado");
+  if (usuario.rol !== "JUGADOR") {
+    throw new ApiError(403, "Solo los jugadores pueden unirse a un partido");
   }
 
-  // Contar participantes aceptados
-  const participantesAceptados = (partido.participantes || []).filter(
-    (p) => p.estado === "ACEPTADO"
-  ).length;
-  if (participantesAceptados >= partido.jugadores_maximos) {
-    throw new ApiError(400, "El partido ya alcanzó el número máximo de jugadores");
-  }
+  await prisma.$transaction(async (tx) => {
+    await partidoRepository.lockForUpdate(id_partido, tx);
+    const partido = await partidoRepository.findById(id_partido, tx);
+    if (!partido) throw new ApiError(404, "Partido no encontrado");
+    if (partido.estado !== "PUBLICADO") {
+      throw new ApiError(400, "No es posible unirse a un partido no publicado");
+    }
+    if (Date.now() > partido.fecha_hora.getTime() - 30 * 60 * 1000) {
+      throw new ApiError(400, "La asistencia solo se puede confirmar hasta 30 minutos antes del partido");
+    }
 
-  const existing = await participanteRepository.findByPartidoAndUsuario(id_partido, usuario.id_usuario);
-  if (existing && existing.estado === "ACEPTADO") {
-    throw new ApiError(400, "Ya te encuentras unido a este partido");
-  }
-  if (existing && existing.estado === "ABANDONADO") {
-    // Volver a unirse
-    await participanteRepository.update(existing.id_participante, { estado: "ACEPTADO", fecha_union: new Date() });
-    return partidoRepository.findById(id_partido);
-  }
+    const existing = await participanteRepository.findByPartidoAndUsuario(
+      id_partido,
+      usuario.id_usuario,
+      tx
+    );
+    if (existing && existing.estado === "ACEPTADO") {
+      throw new ApiError(400, "Ya te encuentras unido a este partido");
+    }
+    if (existing && existing.estado !== "ABANDONADO") {
+      throw new ApiError(400, "No es posible confirmar la asistencia a este partido");
+    }
 
-  await participanteRepository.create({
-    id_partido,
-    id_usuario: usuario.id_usuario,
-    estado: "ACEPTADO",
+    const participantesAceptados = await participanteRepository.countAccepted(id_partido, tx);
+    if (participantesAceptados >= partido.jugadores_maximos) {
+      throw new ApiError(400, "El partido ya alcanzó el número máximo de jugadores");
+    }
+
+    if (existing) {
+      await participanteRepository.update(
+        existing.id_participante,
+        { estado: "ACEPTADO", fecha_union: new Date() },
+        tx
+      );
+    } else {
+      await participanteRepository.create(
+        {
+          id_partido,
+          id_usuario: usuario.id_usuario,
+          estado: "ACEPTADO",
+        },
+        tx
+      );
+    }
   });
+
   return partidoRepository.findById(id_partido);
 };
 
