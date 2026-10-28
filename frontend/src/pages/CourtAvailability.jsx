@@ -19,6 +19,12 @@ const CourtAvailability = () => {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [canchaEnMapa, setCanchaEnMapa] = useState(null);
+  const [horariosSeleccionados, setHorariosSeleccionados] = useState([]);
+
+  const minutosDeHora = (hora) => {
+    const [horas, minutos] = hora.split(":").map(Number);
+    return horas * 60 + minutos;
+  };
 
   const cargarDisponibilidad = async (fechaSeleccionada = fecha) => {
     setCargando(true);
@@ -105,7 +111,10 @@ const CourtAvailability = () => {
               id="fecha"
               type="date"
               value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
+              onChange={(e) => {
+                setFecha(e.target.value);
+                setHorariosSeleccionados([]);
+              }}
               className="rounded-lg border border-slate-200 pl-9 pr-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
             />
           </div>
@@ -151,7 +160,11 @@ const CourtAvailability = () => {
               <div>
                 <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
                   {disponibilidad.slots.map((slot, index) => {
-                    const seleccionado = Array.isArray(window.__cartSlots) && window.__cartSlots.some((s) => s.hora_inicio === slot.hora_inicio && s.hora_fin === slot.hora_fin);
+                    const seleccionado = horariosSeleccionados.some(
+                      (seleccionado) =>
+                        seleccionado.hora_inicio === slot.hora_inicio &&
+                        seleccionado.hora_fin === slot.hora_fin
+                    );
                     return (
                       <button
                         key={`${slot.hora_inicio}-${index}`}
@@ -159,14 +172,50 @@ const CourtAvailability = () => {
                         disabled={!slot.disponible}
                         onClick={() => {
                           if (!slot.disponible) return;
-                          window.__cartSlots = Array.isArray(window.__cartSlots) ? window.__cartSlots : [];
-                          const existe = window.__cartSlots.some((s) => s.hora_inicio === slot.hora_inicio && s.hora_fin === slot.hora_fin);
+                          const existe = horariosSeleccionados.some(
+                            (seleccionado) =>
+                              seleccionado.hora_inicio === slot.hora_inicio &&
+                              seleccionado.hora_fin === slot.hora_fin
+                          );
                           if (existe) {
-                            window.__cartSlots = window.__cartSlots.filter((s) => !(s.hora_inicio === slot.hora_inicio && s.hora_fin === slot.hora_fin));
+                            const posicion = horariosSeleccionados.findIndex(
+                              (seleccionado) =>
+                                seleccionado.hora_inicio === slot.hora_inicio &&
+                                seleccionado.hora_fin === slot.hora_fin
+                            );
+                            if (
+                              horariosSeleccionados.length > 1 &&
+                              posicion > 0 &&
+                              posicion < horariosSeleccionados.length - 1
+                            ) {
+                              setError("Para mantener una sola reserva, quita primero las horas desde uno de los extremos.");
+                              return;
+                            }
+                            setHorariosSeleccionados((seleccionados) =>
+                              seleccionados.filter(
+                                (seleccionado) =>
+                                  seleccionado.hora_inicio !== slot.hora_inicio ||
+                                  seleccionado.hora_fin !== slot.hora_fin
+                              )
+                            );
                           } else {
-                            window.__cartSlots.push({ hora_inicio: slot.hora_inicio, hora_fin: slot.hora_fin });
+                            const contiguo = horariosSeleccionados.length === 0 ||
+                              horariosSeleccionados.some(
+                                (seleccionado) =>
+                                  minutosDeHora(seleccionado.hora_fin) === minutosDeHora(slot.hora_inicio) ||
+                                  minutosDeHora(slot.hora_fin) === minutosDeHora(seleccionado.hora_inicio)
+                              );
+                            if (!contiguo) {
+                              setError("Selecciona horas contiguas para crear una sola reserva.");
+                              return;
+                            }
+                            setHorariosSeleccionados((seleccionados) =>
+                              [...seleccionados, slot].sort((a, b) =>
+                                a.hora_inicio.localeCompare(b.hora_inicio)
+                              )
+                            );
                           }
-                          setDisponibilidad({ ...disponibilidad });
+                          setError("");
                         }}
                         className={`flex items-center justify-between rounded-lg border px-4 py-3 text-left transition ${
                           !slot.disponible
@@ -201,35 +250,33 @@ const CourtAvailability = () => {
               <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm h-fit">
                 <p className="text-sm font-semibold text-slate-900">Horarios seleccionados</p>
                 <div className="mt-3 space-y-2">
-                  {(Array.isArray(window.__cartSlots) ? window.__cartSlots : []).length === 0 ? (
-                    <p className="text-xs text-slate-500">Selecciona uno o varios horarios del listado.</p>
+                  {horariosSeleccionados.length === 0 ? (
+                    <p className="text-xs text-slate-500">Selecciona una o varias horas contiguas.</p>
                   ) : (
-                    (window.__cartSlots || []).map((slot, idx) => (
-                      <div key={idx} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                        <span>{slot.hora_inicio} - {slot.hora_fin}</span>
-                      </div>
-                    ))
+                    <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                      <span>
+                        {horariosSeleccionados[0].hora_inicio} -{" "}
+                        {horariosSeleccionados[horariosSeleccionados.length - 1].hora_fin}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {horariosSeleccionados.length} {horariosSeleccionados.length === 1 ? "hora" : "horas"}
+                      </span>
+                    </div>
                   )}
                 </div>
                 <button
                   type="button"
-                  disabled={(Array.isArray(window.__cartSlots) ? window.__cartSlots : []).length === 0}
+                  disabled={horariosSeleccionados.length === 0}
                   onClick={() => {
-                    const carrito = Array.isArray(window.__cartSlots) ? window.__cartSlots : [];
-                    if (carrito.length === 0) return;
-                    const hora_inicio = carrito[0].hora_inicio;
-                    const hora_fin = carrito[carrito.length - 1].hora_fin;
-                    // Ordenar por hora
-                    const ordenados = [...carrito].sort((a,b) => a.hora_inicio.localeCompare(b.hora_inicio));
+                    if (horariosSeleccionados.length === 0) return;
                     navigate("/reservations/new", {
                       state: {
                         id_cancha: id,
                         cancha: cancha || disponibilidad?.cancha,
                         fecha: fecha || disponibilidad?.fecha,
-                        hora_inicio: ordenados[0].hora_inicio,
-                        hora_fin: ordenados[ordenados.length - 1].hora_fin,
+                        hora_inicio: horariosSeleccionados[0].hora_inicio,
+                        hora_fin: horariosSeleccionados[horariosSeleccionados.length - 1].hora_fin,
                         precio_hora: cancha?.precio_hora || disponibilidad?.cancha?.precio_hora,
-                        cartSlots: ordenados,
                       },
                     });
                   }}

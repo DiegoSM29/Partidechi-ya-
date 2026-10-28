@@ -40,8 +40,14 @@ const validarRegistro = ({ nombre, apellido, correo, password, rol, telefono }) 
       'Rol no permitido para el registro. Utilice "jugador" o "propietario"'
     );
   }
-  if (telefono !== undefined && telefono !== null && telefono !== "" && typeof telefono !== "string") {
-    throw new ApiError(400, 'El campo "telefono" debe ser texto');
+  if (telefono !== undefined && telefono !== null && telefono !== "") {
+    if (typeof telefono !== "string") {
+      throw new ApiError(400, 'El campo "telefono" debe ser texto');
+    }
+    const tel = cleanString(telefono);
+    if (!/^\d{8}$/.test(tel)) {
+      throw new ApiError(400, "El telefono debe contener exactamente 8 digitos");
+    }
   }
 };
 
@@ -64,13 +70,22 @@ const register = async (input) => {
 
   const password_hash = await bcrypt.hash(String(input.password), env.BCRYPT_ROUNDS);
 
+  let telefonoFinal = null;
+  if (isNonEmptyString(input.telefono)) {
+    const tel = cleanString(input.telefono);
+    if (!/^\d{8}$/.test(tel)) {
+      throw new ApiError(400, "El telefono debe contener exactamente 8 digitos");
+    }
+    telefonoFinal = tel;
+  }
+
   const usuario = await usuarioRepository.create({
     nombre: cleanString(input.nombre),
     apellido: cleanString(input.apellido),
     correo,
     password_hash,
     rol: ROLES_REGISTRO[input.rol] || "JUGADOR",
-    telefono: isNonEmptyString(input.telefono) ? cleanString(input.telefono) : null,
+    telefono: telefonoFinal,
   });
 
   return {

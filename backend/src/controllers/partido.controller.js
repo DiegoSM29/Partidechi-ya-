@@ -12,7 +12,7 @@ const create = asyncHandler(async (req, res) => {
 });
 
 const list = asyncHandler(async (req, res) => {
-  const partidos = await partidoService.list(req.query || {});
+  const partidos = await partidoService.list(req.query || {}, req.user);
   res.status(200).json({
     success: true,
     message: "Partidos consultados correctamente",

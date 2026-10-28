@@ -17,12 +17,15 @@ const create = async (usuario, input = {}) => {
   const id_reserva = parseId(input.id_reserva ?? input.reserva_id ?? input.idReserva, "reserva");
   const nombre = (input.nombre ?? input.name ?? "").trim();
   let deporte = (input.deporte ?? input.sport ?? "").trim();
-  const jugadores_maximos = Number(input.jugadores_maximos ?? input.jugadoresMaximos ?? input.max_jugadores);
   const descripcion = input.descripcion ?? input.description ?? null;
+  const isPrivado = input.isPrivado === true;
+  const jugadores_maximos = isPrivado
+    ? null
+    : Number(input.jugadores_maximos ?? input.jugadoresMaximos ?? input.max_jugadores);
 
   if (!nombre) throw new ApiError(400, "El nombre del partido es obligatorio");
-  if (!Number.isInteger(jugadores_maximos) || jugadores_maximos < 1) {
-    throw new ApiError(400, "El número máximo de jugadores debe ser válido");
+  if (!isPrivado && (!Number.isInteger(jugadores_maximos) || jugadores_maximos < 0)) {
+    throw new ApiError(400, "El número máximo de jugadores debe ser un entero no negativo");
   }
 
   const reserva = await reservaRepository.findById(id_reserva);
@@ -45,6 +48,9 @@ const create = async (usuario, input = {}) => {
 
   const fecha_hora = new Date(`${reserva.fecha.toISOString().split("T")[0]}T${reserva.hora_inicio}:00`);
   // Si la fecha ya viene con hora, también podríamos usarla, pero usar reserva es más consistente
+  if (fecha_hora.getTime() <= Date.now()) {
+    throw new ApiError(400, "No se pueden organizar partidos con fecha y hora pasadas");
+  }
 
   let partido;
   try {
@@ -58,7 +64,7 @@ const create = async (usuario, input = {}) => {
           fecha_hora,
           jugadores_maximos,
           descripcion,
-          estado: "PUBLICADO",
+          estado: isPrivado ? "PRIVADO" : "PUBLICADO",
         },
         tx
       );
@@ -83,12 +89,28 @@ const create = async (usuario, input = {}) => {
   return { partido: await partidoRepository.findById(partido.id_partido) };
 };
 
-const list = async (filters = {}) => {
+const list = async (filters = {}, usuario) => {
   const where = {};
-  if (filters.estado) where.estado = filters.estado;
-  else where.estado = "PUBLICADO";
+  if (filters.estado === "PRIVADO") {
+    where.estado = "PRIVADO";
+    where.id_organizador = usuario.id_usuario;
+  } else if (filters.estado) {
+    where.estado = filters.estado;
+  } else {
+    where.OR = [
+      { estado: "PUBLICADO" },
+      { estado: "PRIVADO", id_organizador: usuario.id_usuario },
+      {
+        estado: "PRIVADO",
+        participantes: {
+          some: { id_usuario: usuario.id_usuario, estado: "ACEPTADO" },
+        },
+      },
+    ];
+  }
   if (filters.deporte) where.deporte = { equals: filters.deporte, mode: "insensitive" };
-  return partidoRepository.findMany(where);
+  where.fecha_hora = { gt: new Date() };
+  return partidoRepository.findMany(where, usuario.id_usuario);
 };
 
 const getById = async (rawId) => {
@@ -103,23 +125,70 @@ const update = async (usuario, rawId, input = {}) => {
   const partido = await partidoRepository.findById(id_partido);
   if (!partido) throw new ApiError(404, "Partido no encontrado");
 
-  // Un partido creado por un jugador es definitivo: la confirmacion previa a
-  // la creacion advierte que no se podra modificar despues. Solo un
-  // administrador puede intervenir para moderar el partido.
-  if (usuario.rol !== "ADMINISTRADOR") {
-    throw new ApiError(403, "El partido no puede modificarse después de su creación");
+  const esOrganizador = partido.id_organizador === usuario.id_usuario;
+  const esAdministrador = usuario.rol === "ADMINISTRADOR";
+  if (!esOrganizador && !esAdministrador) {
+    throw new ApiError(403, "Solo el organizador puede editar el partido");
+  }
+  if (esOrganizador && !["PUBLICADO", "PRIVADO"].includes(partido.estado)) {
+    throw new ApiError(400, "Solo se pueden editar partidos activos");
   }
 
   const data = {};
-  if (input.nombre !== undefined) data.nombre = input.nombre.trim();
-  if (input.descripcion !== undefined) data.descripcion = input.descripcion;
-  if (input.jugadores_maximos !== undefined) {
-    const jm = Number(input.jugadores_maximos);
-    if (!Number.isInteger(jm) || jm < 1) throw new ApiError(400, "El número máximo de jugadores debe ser válido");
-    data.jugadores_maximos = jm;
+  if (input.nombre !== undefined) {
+    const nombre = typeof input.nombre === "string" ? input.nombre.trim() : "";
+    if (!nombre || nombre.length > 150) {
+      throw new ApiError(400, "El nombre debe tener entre 1 y 150 caracteres");
+    }
+    data.nombre = nombre;
   }
-  if (input.estado !== undefined && usuario.rol === "ADMINISTRADOR") {
+  if (input.descripcion !== undefined) {
+    if (input.descripcion !== null && typeof input.descripcion !== "string") {
+      throw new ApiError(400, "La descripción no es válida");
+    }
+    const descripcion = input.descripcion?.trim() || null;
+    if (descripcion && descripcion.length > 500) {
+      throw new ApiError(400, "La descripción no puede superar los 500 caracteres");
+    }
+    data.descripcion = descripcion;
+  }
+  if (input.jugadores_maximos !== undefined) {
+    if (input.jugadores_maximos === null && input.estado === "PRIVADO") {
+      data.jugadores_maximos = null;
+    } else {
+      const jm = Number(input.jugadores_maximos);
+      if (!Number.isInteger(jm) || jm < 0) {
+        throw new ApiError(400, "El número máximo de jugadores debe ser un entero no negativo");
+      }
+      const aceptados = partido.participantes.filter(
+        (participante) => participante.estado === "ACEPTADO"
+      ).length;
+      if (jm < aceptados) {
+        throw new ApiError(400, `El máximo no puede ser menor a los ${aceptados} jugadores ya aceptados`);
+      }
+      data.jugadores_maximos = jm;
+    }
+  }
+  if (input.estado !== undefined) {
+    const estadosPermitidos = esAdministrador
+      ? ["PUBLICADO", "PRIVADO", "CANCELADO", "COMPLETADO"]
+      : ["PUBLICADO", "PRIVADO"];
+    if (!estadosPermitidos.includes(input.estado)) {
+      throw new ApiError(400, "El estado del partido no es válido");
+    }
     data.estado = input.estado;
+  }
+
+  if (data.estado === "PUBLICADO" && data.jugadores_maximos === undefined &&
+      partido.jugadores_maximos === null) {
+    throw new ApiError(400, "Indica el máximo de jugadores para publicar el partido");
+  }
+  if (data.estado === "PUBLICADO" && data.jugadores_maximos === null) {
+    throw new ApiError(400, "Un partido público debe tener un máximo de jugadores");
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new ApiError(400, "No se recibieron cambios para actualizar");
   }
 
   await partidoRepository.update(id_partido, data);
@@ -133,8 +202,8 @@ const remove = async (usuario, rawId) => {
   if (partido.id_organizador !== usuario.id_usuario) {
     throw new ApiError(403, "Solo el organizador puede eliminar el partido");
   }
-  if (partido.estado !== "PUBLICADO") {
-    throw new ApiError(400, "Solo se pueden eliminar partidos publicados");
+  if (partido.estado !== "PUBLICADO" && partido.estado !== "PRIVADO") {
+    throw new ApiError(400, "Solo se pueden eliminar partidos activos");
   }
   if (partido.fecha_hora.getTime() - Date.now() < 24 * 60 * 60 * 1000) {
     throw new ApiError(400, "El partido solo puede eliminarse con al menos 24 horas de anticipación");
@@ -153,7 +222,7 @@ const join = async (usuario, rawId) => {
     await partidoRepository.lockForUpdate(id_partido, tx);
     const partido = await partidoRepository.findById(id_partido, tx);
     if (!partido) throw new ApiError(404, "Partido no encontrado");
-    if (partido.estado !== "PUBLICADO") {
+    if (partido.estado !== "PUBLICADO" && partido.estado !== "PRIVADO") {
       throw new ApiError(400, "No es posible unirse a un partido no publicado");
     }
     if (Date.now() > partido.fecha_hora.getTime() - 30 * 60 * 1000) {
@@ -173,7 +242,7 @@ const join = async (usuario, rawId) => {
     }
 
     const participantesAceptados = await participanteRepository.countAccepted(id_partido, tx);
-    if (participantesAceptados >= partido.jugadores_maximos) {
+    if (partido.jugadores_maximos !== null && partido.jugadores_maximos !== undefined && participantesAceptados >= partido.jugadores_maximos) {
       throw new ApiError(400, "El partido ya alcanzó el número máximo de jugadores");
     }
 

@@ -198,6 +198,35 @@ const CourtSchedule = () => {
     return resultado;
   }, [horarios, horariosPendientes]);
 
+  const bloquesDisponibilidad = useMemo(() => {
+    if (!disponibilidad) return [];
+    const reservas = disponibilidad.reservas || [];
+    const slots = disponibilidad.slots || [];
+    const bloques = [
+      ...slots
+        .filter((slot) => slot.disponible)
+        .map((slot) => ({ ...slot, clave: `${slot.hora_inicio}-${slot.hora_fin}` })),
+      ...reservas.map((reserva) => ({
+        hora_inicio: reserva.hora_inicio,
+        hora_fin: reserva.hora_fin,
+        disponible: false,
+        clave: `reserva-${reserva.id_reserva}`,
+      })),
+      ...slots
+        .filter(
+          (slot) =>
+            !slot.disponible &&
+            !reservas.some(
+              (reserva) =>
+                reserva.hora_inicio < slot.hora_fin &&
+                reserva.hora_fin > slot.hora_inicio
+            )
+        )
+        .map((slot) => ({ ...slot, clave: `${slot.hora_inicio}-${slot.hora_fin}` })),
+    ];
+    return bloques.sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+  }, [disponibilidad]);
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <Link
@@ -394,9 +423,9 @@ const CourtSchedule = () => {
                 </div>
               ) : (
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                  {disponibilidad.slots.map((slot) => (
+                  {bloquesDisponibilidad.map((slot) => (
                     <div
-                      key={`${slot.hora_inicio}-${slot.hora_fin}`}
+                      key={slot.clave}
                       className={`rounded-lg border px-3 py-2 text-center text-xs font-semibold ${
                         slot.disponible
                           ? "border-emerald-200 bg-emerald-50 text-emerald-800"
