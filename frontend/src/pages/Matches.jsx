@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, MapPinned, Plus, Search, Trophy, Users } from "lucide-react";
+import { CalendarDays, Clock, MapPinned, Plus, Search, Trophy, Users } from "lucide-react";
 import { getMatches } from "../api/matches";
 import { getApiError } from "../api/client";
 import Alert from "../components/Alert";
@@ -55,7 +55,6 @@ const Matches = () => {
     try {
       return new Date(fecha).toLocaleString("es-ES", {
         dateStyle: "medium",
-        timeStyle: "short",
       });
     } catch {
       return fecha;
@@ -64,8 +63,12 @@ const Matches = () => {
 
   const partidosVisibles = partidos.filter((partido) => {
     const esOrganizador = partido.id_organizador === user?.id_usuario;
+    const estaParticipando = partido.participantes?.some(
+      (participante) => participante.id_usuario === user?.id_usuario
+    );
     if (tipoListado === "mios") return esOrganizador;
-    if (esOrganizador) return false;
+    if (tipoListado === "participando") return !esOrganizador && estaParticipando;
+    if (esOrganizador || estaParticipando || partido.estado !== "PUBLICADO") return false;
     if (filters.deporte && partido.deporte?.toLocaleLowerCase("es") !== filters.deporte) return false;
     if (filters.fecha && fechaLocal(partido.fecha_hora) !== filters.fecha) return false;
     const ubicacion = partido.reserva?.cancha?.ubicacion || "";
@@ -87,15 +90,6 @@ const Matches = () => {
           <h1 className="text-2xl font-bold text-slate-900">Partidos amistosos</h1>
           <p className="text-sm text-slate-500">Encuentra un partido o crea uno desde una reserva confirmada</p>
         </div>
-        {user?.rol === "JUGADOR" ? (
-          <Link
-            to="/reservations/new"
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
-          >
-            <Plus size={16} />
-            Crear partido desde reserva
-          </Link>
-        ) : null}
       </div>
 
       {error ? <Alert tipo="error">{error}</Alert> : null}
@@ -126,6 +120,19 @@ const Matches = () => {
           }`}
         >
           Mis partidos organizados
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tipoListado === "participando"}
+          onClick={() => setTipoListado("participando")}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            tipoListado === "participando"
+              ? "bg-emerald-700 text-white"
+              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          }`}
+        >
+          Partidos en los que participo
         </button>
       </div>
 
@@ -182,6 +189,16 @@ const Matches = () => {
                 Cuando organices un partido, aparecerá en esta sección.
               </p>
             </>
+          ) : tipoListado === "participando" ? (
+            <>
+              <Users className="mx-auto h-10 w-10 text-slate-400" />
+              <h2 className="mt-3 text-lg font-semibold text-slate-900">
+                No participas en partidos actualmente
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Cuando confirmes tu asistencia, el partido aparecerá en esta sección.
+              </p>
+            </>
           ) : (
             <>
               <Search className="mx-auto h-10 w-10 text-slate-400" />
@@ -216,6 +233,17 @@ const Matches = () => {
                   <CalendarDays size={16} className="text-slate-400" />
                   <span>{formatearFecha(partido.fecha_hora)}</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Clock size={16} className="text-slate-400" />
+                  <span>
+                    {partido.reserva?.hora_inicio ||
+                      new Date(partido.fecha_hora).toLocaleTimeString("es-ES", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    {partido.reserva?.hora_fin ? ` - ${partido.reserva.hora_fin}` : ""}
+                  </span>
+                </div>
                 {partido.reserva?.cancha ? (
                   <div className="flex items-center gap-2">
                     <MapPinned size={16} className="text-slate-400" />
@@ -224,7 +252,11 @@ const Matches = () => {
                 ) : null}
                 <div className="flex items-center gap-2">
                   <Users size={16} className="text-slate-400" />
-                  <span>Máx. {partido.jugadores_maximos} jugadores</span>
+                  <span>
+                    {partido.jugadores_maximos == null
+                      ? "Sin límite de jugadores"
+                      : `Máx. ${partido.jugadores_maximos} jugadores`}
+                  </span>
                 </div>
               </dl>
             </Link>

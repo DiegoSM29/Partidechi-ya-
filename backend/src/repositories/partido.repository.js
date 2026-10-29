@@ -27,7 +27,7 @@ const findById = (id_partido, client = prisma) =>
 const lockForUpdate = (id_partido, client = prisma) =>
   client.$queryRaw`SELECT "id_partido" FROM "partidos" WHERE "id_partido" = ${id_partido} FOR UPDATE`;
 
-const findMany = (where = {}, client = prisma) =>
+const findMany = (where = {}, id_usuario, client = prisma) =>
   client.partido.findMany({
     where,
     orderBy: { fecha_hora: "asc" },
@@ -42,6 +42,10 @@ const findMany = (where = {}, client = prisma) =>
       },
       _count: {
         select: { participantes: true },
+      },
+      participantes: {
+        where: { id_usuario, estado: "ACEPTADO" },
+        select: { id_usuario: true },
       },
     },
   });

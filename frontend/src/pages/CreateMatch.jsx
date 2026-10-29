@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, Trophy } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Lock, Trophy } from "lucide-react";
 import { getReservations } from "../api/reservations";
 import { createMatch } from "../api/matches";
 import { getApiError } from "../api/client";
@@ -21,6 +21,7 @@ const CreateMatch = () => {
     deporte: "",
     jugadores_maximos: "",
     descripcion: "",
+    isPrivado: false,
   });
   const reservasConfirmadas = reservas.filter(
     (reserva) => reserva.estado === "CONFIRMADA" && !reserva.partido
@@ -88,8 +89,9 @@ const CreateMatch = () => {
         id_reserva: Number(form.id_reserva),
         nombre: form.nombre,
         deporte: reservaSeleccionada?.cancha?.deporte || form.deporte,
-        jugadores_maximos: Number(form.jugadores_maximos),
+        ...(form.isPrivado ? {} : { jugadores_maximos: Number(form.jugadores_maximos) }),
         descripcion: form.descripcion || undefined,
+        isPrivado: form.isPrivado,
       };
       const { data } = await createMatch(payload);
       setConfirmacionAbierta(false);
@@ -183,20 +185,22 @@ const CreateMatch = () => {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium text-slate-700">Número máximo de jugadores</label>
-              <input
-                name="jugadores_maximos"
-                type="number"
-                min="1"
-                value={form.jugadores_maximos}
-                onChange={handleChange}
-                required
-                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-              />
+          {!form.isPrivado ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Número máximo de jugadores</label>
+                <input
+                  name="jugadores_maximos"
+                  type="number"
+                  min="0"
+                  value={form.jugadores_maximos}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div>
             <label className="text-sm font-medium text-slate-700">Descripción (opcional)</label>
@@ -210,6 +214,27 @@ const CreateMatch = () => {
             />
           </div>
 
+          <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4">
+            <input
+              name="isPrivado"
+              type="checkbox"
+              checked={form.isPrivado}
+              onChange={(event) =>
+                setForm((previous) => ({ ...previous, isPrivado: event.target.checked }))
+              }
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
+            />
+            <span>
+              <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <Lock size={15} />
+                Crear partido privado
+              </span>
+              <span className="mt-1 block text-xs text-slate-500">
+                No aparecerá en el listado público. Quienes tengan el enlace podrán verlo y unirse.
+              </span>
+            </span>
+          </label>
+
             <button
               type="submit"
               disabled={guardando || reservasConfirmadas.length === 0}
@@ -220,7 +245,7 @@ const CreateMatch = () => {
             </button>
             <p className="mt-2 flex items-start gap-1.5 text-xs text-slate-500">
               <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" />
-              Al confirmar la creación, el partido quedará publicado y no podrá modificarse.
+              Al confirmar la creación, el partido no podrá modificarse.
             </p>
           </form>
 
@@ -275,7 +300,13 @@ const CreateMatch = () => {
                   <div className="flex justify-between gap-4">
                     <dt className="text-slate-500">Máximo de jugadores</dt>
                     <dd className="text-right font-medium text-slate-900">
-                      {form.jugadores_maximos}
+                      {form.isPrivado ? "Sin límite (privado)" : form.jugadores_maximos}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">Visibilidad</dt>
+                    <dd className="text-right font-medium text-slate-900">
+                      {form.isPrivado ? "Privado (solo con enlace)" : "Público"}
                     </dd>
                   </div>
                   {form.descripcion ? (

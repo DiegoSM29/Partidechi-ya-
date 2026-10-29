@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, MapPinned, Users, UserRound, ArrowLeft, Lock, LogIn, LogOut, Trash2, Map } from "lucide-react";
-import { deleteMatch, getMatchById, joinMatch, leaveMatch } from "../api/matches";
+import { CalendarDays, Clock, MapPinned, Users, UserRound, ArrowLeft, Lock, LogIn, LogOut, Trash2, Map, Pencil, Save, X } from "lucide-react";
+import { deleteMatch, getMatchById, joinMatch, leaveMatch, updateMatch } from "../api/matches";
 import { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
@@ -20,6 +20,14 @@ const MatchDetail = () => {
   const [eliminando, setEliminando] = useState(false);
   const [ahora, setAhora] = useState(Date.now());
   const [mostrarMapa, setMostrarMapa] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [edicion, setEdicion] = useState({
+    nombre: "",
+    descripcion: "",
+    estado: "PUBLICADO",
+    jugadores_maximos: "",
+  });
 
   const cargar = async () => {
     setLoading(true);
@@ -47,7 +55,6 @@ const MatchDetail = () => {
     try {
       return new Date(fecha).toLocaleString("es-ES", {
         dateStyle: "full",
-        timeStyle: "short",
       });
     } catch {
       return fecha;
@@ -59,13 +66,18 @@ const MatchDetail = () => {
   );
   const esOrganizador = partido?.id_organizador === user?.id_usuario;
   const puedeEliminar =
-    partido?.estado === "PUBLICADO" &&
+    (partido?.estado === "PUBLICADO" || partido?.estado === "PRIVADO") &&
     new Date(partido.fecha_hora).getTime() - Date.now() >= 24 * 60 * 60 * 1000;
   const puedeConfirmarAsistencia =
-    partido?.estado === "PUBLICADO" &&
+    (partido?.estado === "PUBLICADO" || partido?.estado === "PRIVADO") &&
     ahora <= new Date(partido.fecha_hora).getTime() - 30 * 60 * 1000;
   const aceptados = partido?.participantes?.filter((p) => p.estado === "ACEPTADO") || [];
-  const plazasLibres = partido ? partido.jugadores_maximos - aceptados.length : 0;
+  const plazasSinLimite = partido?.jugadores_maximos == null;
+  const plazasLibres = !partido
+    ? 0
+    : plazasSinLimite
+      ? Infinity
+      : partido.jugadores_maximos - aceptados.length;
   const montoReserva = Number(partido?.reserva?.monto_total);
   const aporteMinimo = Number.isFinite(montoReserva)
     ? montoReserva / partido.jugadores_maximos
@@ -74,7 +86,7 @@ const MatchDetail = () => {
     ? montoReserva / (aceptados.length + 1)
     : null;
   const formatoMoneda = (monto) =>
-    new Intl.NumberFormat("es-BO", { style: "currency", currency: "BOB" }).format(monto);
+    `Bs. ${Number(monto).toFixed(2)}`;
 
   const handleUnirse = async () => {
     setAccion(true);
@@ -115,6 +127,38 @@ const MatchDetail = () => {
       setError(getApiError(e));
     } finally {
       setEliminando(false);
+    }
+  };
+
+  const iniciarEdicion = () => {
+    setEdicion({
+      nombre: partido.nombre,
+      descripcion: partido.descripcion || "",
+      estado: partido.estado,
+      jugadores_maximos: partido.jugadores_maximos ?? "",
+    });
+    setError("");
+    setEditando(true);
+  };
+
+  const handleGuardarEdicion = async (event) => {
+    event.preventDefault();
+    setGuardandoEdicion(true);
+    setError("");
+    try {
+      const { data } = await updateMatch(id, {
+        nombre: edicion.nombre,
+        descripcion: edicion.descripcion,
+        estado: edicion.estado,
+        jugadores_maximos:
+          edicion.estado === "PRIVADO" ? null : Number(edicion.jugadores_maximos),
+      });
+      setPartido(data?.data?.partido || null);
+      setEditando(false);
+    } catch (e) {
+      setError(getApiError(e));
+    } finally {
+      setGuardandoEdicion(false);
     }
   };
 
@@ -165,7 +209,19 @@ const MatchDetail = () => {
             <p className="mt-1 text-sm text-slate-500">{partido.deporte} · Organizado por {partido.organizador?.nombre} {partido.organizador?.apellido}</p>
           </div>
           <div className="flex gap-2">
-            {esOrganizador && partido.estado === "PUBLICADO" && puedeEliminar ? (
+            {esOrganizador && ["PUBLICADO", "PRIVADO"].includes(partido.estado) ? (
+              <button
+                onClick={iniciarEdicion}
+                disabled={editando}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                <Pencil size={16} />
+                Editar partido
+              </button>
+            ) : null}
+            {esOrganizador &&
+            (partido.estado === "PUBLICADO" || partido.estado === "PRIVADO") &&
+            puedeEliminar ? (
               <button
                 onClick={handleEliminar}
                 disabled={eliminando}
@@ -175,16 +231,30 @@ const MatchDetail = () => {
                 {eliminando ? "Eliminando..." : "Eliminar partido"}
               </button>
             ) : null}
-            {user?.rol === "JUGADOR" && !esOrganizador && partido.estado === "PUBLICADO" ? (
+            {user?.rol === "JUGADOR" &&
+            !esOrganizador &&
+            (partido.estado === "PUBLICADO" || partido.estado === "PRIVADO") ? (
               yaUnido ? (
-                <button
-                  onClick={handleAbandonar}
-                  disabled={accion}
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  <LogOut size={16} />
-                  Abandonar partido
-                </button>
+                <>
+                  {partido.reserva?.cancha ? (
+                    <button
+                      type="button"
+                      onClick={() => setMostrarMapa(true)}
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <Map size={16} />
+                      Ver mapa de la cancha
+                    </button>
+                  ) : null}
+                  <button
+                    onClick={handleAbandonar}
+                    disabled={accion}
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    <LogOut size={16} />
+                    Abandonar partido
+                  </button>
+                </>
               ) : (
                 <>
                   {partido.reserva?.cancha ? (
@@ -221,6 +291,96 @@ const MatchDetail = () => {
           </div>
         </div>
 
+        {editando ? (
+          <form onSubmit={handleGuardarEdicion} className="border-b border-slate-100 bg-slate-50 p-6">
+            <h2 className="text-lg font-semibold text-slate-900">Editar partido</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-slate-700">
+                Nombre del partido
+                <input
+                  value={edicion.nombre}
+                  onChange={(event) =>
+                    setEdicion((actual) => ({ ...actual, nombre: event.target.value }))
+                  }
+                  maxLength={150}
+                  required
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2"
+                />
+              </label>
+              <label className="text-sm font-medium text-slate-700">
+                Máximo de jugadores
+                <input
+                  type="number"
+                  min="0"
+                  value={edicion.estado === "PRIVADO" ? "" : edicion.jugadores_maximos}
+                  onChange={(event) =>
+                    setEdicion((actual) => ({
+                      ...actual,
+                      jugadores_maximos: event.target.value,
+                    }))
+                  }
+                  required={edicion.estado === "PUBLICADO"}
+                  disabled={edicion.estado === "PRIVADO"}
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 disabled:bg-slate-100"
+                />
+              </label>
+              <label className="text-sm font-medium text-slate-700 sm:col-span-2">
+                Descripción
+                <textarea
+                  value={edicion.descripcion}
+                  onChange={(event) =>
+                    setEdicion((actual) => ({ ...actual, descripcion: event.target.value }))
+                  }
+                  maxLength={500}
+                  rows={3}
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2"
+                />
+              </label>
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={edicion.estado === "PRIVADO"}
+                  onChange={(event) =>
+                    setEdicion((actual) => ({
+                      ...actual,
+                      estado: event.target.checked ? "PRIVADO" : "PUBLICADO",
+                    }))
+                  }
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+                />
+                <span>
+                  <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <Lock size={15} />
+                    Partido privado
+                  </span>
+                  <span className="mt-1 block text-xs text-slate-500">
+                    Los partidos privados no tienen límite de jugadores y no aparecen en el listado público.
+                  </span>
+                </span>
+              </label>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditando(false)}
+                disabled={guardandoEdicion}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+              >
+                <X size={16} />
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={guardandoEdicion}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <Save size={16} />
+                {guardandoEdicion ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </form>
+        ) : null}
+
         <div className="grid gap-6 p-6 md:grid-cols-2">
           <div className="space-y-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Información del encuentro</h2>
@@ -228,6 +388,17 @@ const MatchDetail = () => {
               <div className="flex items-center gap-2">
                 <CalendarDays size={16} className="text-slate-400" />
                 <span>{formatearFecha(partido.fecha_hora)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-slate-400" />
+                <span>
+                  {partido.reserva?.hora_inicio ||
+                    new Date(partido.fecha_hora).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  {partido.reserva?.hora_fin ? ` - ${partido.reserva.hora_fin}` : ""}
+                </span>
               </div>
               {partido.reserva?.cancha ? (
                 <>
@@ -240,10 +411,18 @@ const MatchDetail = () => {
               ) : null}
               <div className="flex items-center gap-2">
                 <Users size={16} className="text-slate-400" />
-                <span>{aceptados.length} / {partido.jugadores_maximos} jugadores</span>
+                <span>
+                  {plazasSinLimite
+                    ? `${aceptados.length} jugadores · sin límite`
+                    : partido.jugadores_maximos === 0
+                      ? "Sin plazas para unirse"
+                      : `${aceptados.length} / ${partido.jugadores_maximos} jugadores`}
+                </span>
               </div>
               <div className="pl-6 text-slate-500">
-                Plazas disponibles: {Math.max(0, plazasLibres)}
+                {plazasSinLimite
+                  ? "Plazas disponibles: sin límite"
+                  : `Plazas disponibles: ${Math.max(0, plazasLibres)}`}
               </div>
             </dl>
             {partido.descripcion ? (
@@ -260,7 +439,7 @@ const MatchDetail = () => {
             {user?.rol === "JUGADOR" &&
             !yaUnido &&
             !esOrganizador &&
-            partido.estado === "PUBLICADO" &&
+            (partido.estado === "PUBLICADO" || partido.estado === "PRIVADO") &&
             puedeConfirmarAsistencia &&
             plazasLibres > 0 ? (
               <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
@@ -282,13 +461,14 @@ const MatchDetail = () => {
               <div className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
                 <Lock size={15} className="mt-0.5 shrink-0" />
                 <span>
-                  Los datos del partido no pueden modificarse. Puedes eliminarlo solo con
-                  al menos 24 horas de anticipación; los jugadores pueden unirse o abandonar
-                  desde esta misma página.
+                  Puedes editar el nombre, la descripción y la visibilidad del partido. Los jugadores
+                  pueden unirse o abandonar desde esta misma página.
                 </span>
               </div>
             ) : null}
-            {esOrganizador && partido.estado === "PUBLICADO" && !puedeEliminar ? (
+            {esOrganizador &&
+            (partido.estado === "PUBLICADO" || partido.estado === "PRIVADO") &&
+            !puedeEliminar ? (
               <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-inset ring-slate-200">
                 Ya no es posible eliminar este partido: debe hacerse con al menos 24 horas de anticipación.
               </div>

@@ -141,18 +141,18 @@ enum EstadoUsuario {
 
 /// Partidos amistosos asociados a una reserva
 model Partido {
-  id_partido      Int            @id @default(autoincrement())
-  id_organizador  Int
-  id_reserva      Int?           @unique
-  nombre          String         @db.VarChar(150)
-  deporte         String         @db.VarChar(80)
-  fecha_hora      DateTime
-  jugadores_maximos Int
-  descripcion     String?        @db.VarChar(500)
-  estado          EstadoPartido  @default(PUBLICADO)
-  organizador     Usuario        @relation("PartidosOrganizados", fields: [id_organizador], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
-  reserva         Reserva?       @relation(fields: [id_reserva], references: [id_reserva], onDelete: Restrict, onUpdate: Cascade)
-  participantes   Participante[]
+  id_partido        Int           @id @default(autoincrement())
+  id_organizador    Int
+  id_reserva        Int?          @unique
+  nombre            String        @db.VarChar(150)
+  deporte           String        @db.VarChar(80)
+  fecha_hora        DateTime
+  jugadores_maximos Int?
+  descripcion       String?       @db.VarChar(500)
+  estado            EstadoPartido @default(PUBLICADO)
+  organizador       Usuario       @relation("PartidosOrganizados", fields: [id_organizador], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  reserva           Reserva?      @relation(fields: [id_reserva], references: [id_reserva], onDelete: Restrict, onUpdate: Cascade)
+  participantes     Participante[]
 
   @@index([id_organizador])
   @@index([id_reserva])
@@ -175,8 +175,9 @@ model Participante {
 }
 
 enum EstadoPartido {
-  PUBLICADO @map("publicado")
-  CANCELADO @map("cancelado")
+  PUBLICADO  @map("publicado")
+  PRIVADO    @map("privado")
+  CANCELADO  @map("cancelado")
   COMPLETADO @map("completado")
 
   @@map("estado_partido")

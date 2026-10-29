@@ -7,8 +7,7 @@ import {
 } from "react";
 import api, { clearToken, getToken, setToken } from "../api/client";
 
-// Estado global de autenticacion (HU-01):
-// user, token, login(), register(), logout() y proteccion de rutas.
+
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
