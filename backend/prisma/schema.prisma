@@ -1,0 +1,192 @@
+// Prisma Schema - Partidechi ya!
+// HU-01: Registro e inicio de sesion (tabla usuarios)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id_usuario        Int            @id @default(autoincrement())
+  nombre            String         @db.VarChar(100)
+  apellido          String         @db.VarChar(100)
+  correo            String         @unique @db.VarChar(150)
+  password_hash     String         @db.VarChar(255)
+  rol               Rol            @default(JUGADOR)
+  telefono          String?        @db.VarChar(30)
+  estado            EstadoUsuario  @default(ACTIVO)
+  fecha_registro    DateTime       @default(now())
+  canchas           Cancha[]
+  reservas          Reserva[]
+  pagosVerificados  Pago[]         @relation("PagosVerificados")
+  partidosOrganizados Partido[]    @relation("PartidosOrganizados")
+  participaciones   Participante[]
+
+  @@map("usuarios")
+}
+
+model Cancha {
+  id_cancha         Int       @id @default(autoincrement())
+  id_propietario    Int
+  nombre            String    @db.VarChar(100)
+  ubicacion         String    @db.VarChar(200)
+  latitud           Float?
+  longitud          Float?
+  deporte           String    @db.VarChar(80)
+  precio_hora       Float
+  fecha_registro    DateTime  @default(now())
+  propietario       Usuario   @relation(fields: [id_propietario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  horarios          Horario[]
+  reservas          Reserva[]
+
+  @@index([id_propietario])
+  @@map("canchas")
+}
+
+/// Franjas horarias semanales registradas como disponibles para una cancha.
+model Horario {
+  id_horario  Int           @id @default(autoincrement())
+  id_cancha   Int
+  dia_semana  Int
+  hora_inicio String        @db.VarChar(5)
+  hora_fin    String        @db.VarChar(5)
+  cancha      Cancha        @relation(fields: [id_cancha], references: [id_cancha], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([id_cancha, dia_semana])
+  @@map("horarios")
+}
+
+/// Reservas de una cancha. Las reservas pendientes y confirmadas ocupan la
+/// franja horaria y se excluyen de la disponibilidad publica.
+model Reserva {
+  id_reserva     Int           @id @default(autoincrement())
+  id_usuario     Int
+  id_cancha      Int
+  fecha          DateTime      @db.Date
+  hora_inicio    String        @db.VarChar(5)
+  hora_fin       String        @db.VarChar(5)
+  monto_total    Float
+  estado         EstadoReserva @default(PENDIENTE)
+  fecha_creacion DateTime      @default(now())
+  usuario        Usuario       @relation(fields: [id_usuario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  cancha         Cancha        @relation(fields: [id_cancha], references: [id_cancha], onDelete: Cascade, onUpdate: Cascade)
+  pagos          Pago[]
+  partido        Partido?
+
+  @@index([id_usuario])
+  @@index([id_cancha, fecha])
+  @@map("reservas")
+}
+
+/// Pagos asociados a una reserva.
+model Pago {
+  id_pago           Int         @id @default(autoincrement())
+  id_reserva        Int
+  monto             Float
+  metodo_pago       String      @db.VarChar(40)
+  referencia        String?     @db.VarChar(150)
+  comprobante_url   String?     @db.VarChar(500)
+  estado            EstadoPago  @default(PENDIENTE)
+  verificado_por    Int?
+  fecha_pago        DateTime    @default(now())
+  fecha_verificacion DateTime?
+  reserva           Reserva     @relation(fields: [id_reserva], references: [id_reserva], onDelete: Cascade, onUpdate: Cascade)
+  verificador       Usuario?    @relation("PagosVerificados", fields: [verificado_por], references: [id_usuario], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([id_reserva])
+  @@map("pagos")
+}
+
+/// Estados de un pago.
+enum EstadoPago {
+  PENDIENTE  @map("pendiente")
+  APROBADO   @map("aprobado")
+  RECHAZADO  @map("rechazado")
+  REEMBOLSADO @map("reembolsado")
+
+  @@map("estado_pago")
+}
+
+/// Estados de una reserva. Las canceladas liberan la franja horaria.
+enum EstadoReserva {
+  PENDIENTE  @map("pendiente")
+  CONFIRMADA @map("confirmada")
+  CANCELADA  @map("cancelada")
+  COMPLETADA @map("completada")
+
+  @@map("estado_reserva")
+}
+
+/// Roles permitidos en el sistema: jugador, propietario, administrador
+enum Rol {
+  JUGADOR       @map("jugador")
+  PROPIETARIO   @map("propietario")
+  ADMINISTRADOR @map("administrador")
+
+  @@map("rol")
+}
+
+/// Estados de cuenta de usuario
+enum EstadoUsuario {
+  ACTIVO     @map("activo")
+  INACTIVO   @map("inactivo")
+  SUSPENDIDO @map("suspendido")
+
+  @@map("estado_usuario")
+}
+
+/// Partidos amistosos asociados a una reserva
+model Partido {
+  id_partido        Int           @id @default(autoincrement())
+  id_organizador    Int
+  id_reserva        Int?          @unique
+  nombre            String        @db.VarChar(150)
+  deporte           String        @db.VarChar(80)
+  fecha_hora        DateTime
+  jugadores_maximos Int?
+  descripcion       String?       @db.VarChar(500)
+  estado            EstadoPartido @default(PUBLICADO)
+  organizador       Usuario       @relation("PartidosOrganizados", fields: [id_organizador], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  reserva           Reserva?      @relation(fields: [id_reserva], references: [id_reserva], onDelete: Restrict, onUpdate: Cascade)
+  participantes     Participante[]
+
+  @@index([id_organizador])
+  @@index([id_reserva])
+  @@map("partidos")
+}
+
+/// Participantes de un partido
+model Participante {
+  id_participante Int             @id @default(autoincrement())
+  id_partido      Int
+  id_usuario      Int
+  estado          EstadoParticipante @default(ACEPTADO)
+  fecha_union     DateTime         @default(now())
+  partido         Partido          @relation(fields: [id_partido], references: [id_partido], onDelete: Cascade, onUpdate: Cascade)
+  usuario         Usuario          @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([id_partido, id_usuario])
+  @@index([id_usuario])
+  @@map("participantes")
+}
+
+enum EstadoPartido {
+  PUBLICADO  @map("publicado")
+  PRIVADO    @map("privado")
+  CANCELADO  @map("cancelado")
+  COMPLETADO @map("completado")
+
+  @@map("estado_partido")
+}
+
+enum EstadoParticipante {
+  ACEPTADO @map("aceptado")
+  RECHAZADO @map("rechazado")
+  ABANDONADO @map("abandonado")
+
+  @@map("estado_participante")
+}
