@@ -67,6 +67,8 @@ npm run dev        → http://localhost:5173
 | `/courts/:id/schedules` | Propietario | Configuracion de horarios registrados y consulta de disponibilidad |
 | `/reservations/new` | Protegida | Solicitud de reserva desde un horario disponible |
 | `/reservations/:id/pay` | Protegida | Pago PayPal/manual y confirmacion automatica de la reserva |
+| `/reservations` | Jugador | Consulta de reservas proximas, pasadas y canceladas |
+| `/reservations/:id` | Jugador | Detalle persistente de una reserva propia |
 | `/reservations/owner` | Propietario | Consulta de reservas propias, estados de pago y verificacion de comprobantes |
 | `/matches`, `/matches/create`, `/matches/:id` | Protegida | Partidos amistosos asociados a reservas confirmadas |
 | `/` | — | Redirige a `/login` o `/profile` segun sesion |
@@ -112,6 +114,10 @@ La vista `/reservations/owner` permite al propietario consultar las reservas de 
 * La API fuerza el filtro por propietario, por lo que no es posible consultar ni verificar reservas de canchas ajenas.
 
 El flujo de pago del jugador (`/reservations/:id/pay`) captura el pago de PayPal al regresar del checkout y confirma la reserva automaticamente. La pantalla de exito permite crear un partido con esa reserva. Tambien se puede registrar un pago manual con referencia y enlace de comprobante para que el propietario lo verifique.
+
+## Consulta de Reservas del Jugador
+
+La vista `/reservations` permite al jugador consultar sus reservas próximas, pasadas y canceladas. Cada tarjeta muestra la cancha, ubicación, fecha, horario, importe, estado de reserva y los estados de pago disponibles. El detalle se abre en `/reservations/:id` y vuelve a consultar la API por identificador, sin depender del estado temporal de navegación. El backend limita tanto el listado como el detalle a las reservas autorizadas del usuario autenticado. Si el jugador aún no tiene reservas, la vista ofrece un acceso para buscar canchas.
 
 ## Partidos Amistosos y Navegacion
 

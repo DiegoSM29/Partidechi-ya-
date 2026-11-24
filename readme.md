@@ -229,6 +229,19 @@ Se implementó la consulta de reservas y la verificación de pagos para que el p
   - `CreateMatch` ahora muestra únicamente reservas `CONFIRMADA` y explica que una reserva se confirma automáticamente al pagar.
   - Si no hay reservas confirmadas, indica que primero debe pagarse una reserva.
 
+## Consulta de Reservas del Jugador (HU-09)
+
+El jugador puede consultar su historial de reservas independientemente de la navegación con la que las creó:
+
+- **Backend**
+  - `GET /api/v1/reservations` devuelve únicamente las reservas del jugador autenticado; el filtro por usuario se aplica en el servidor.
+  - `GET /api/v1/reservations/:id` permite volver a cargar el detalle por identificador y valida que la reserva pertenezca al jugador (o sea accesible por el rol autorizado).
+  - Las respuestas contienen la cancha y ubicación, fecha, horario, importe, estado de reserva y pagos asociados con su estado.
+- **Frontend**
+  - `/reservations` presenta las pestañas **Próximas**, **Pasadas** y **Canceladas**, con un estado vacío que invita a buscar canchas cuando no hay reservas.
+  - `/reservations/:id` carga el detalle desde la API y no depende del estado temporal de navegación ni de la sesión en que se creó la reserva.
+  - El enlace **Mis reservas** aparece en la navegación del jugador. Ambas vistas están protegidas para el rol `JUGADOR`.
+
 ### Archivos principales modificados
 
 - `backend/src/repositories/reserva.repository.js`: incluye pagos, jugador y partido en las consultas de reservas.
@@ -238,6 +251,7 @@ Se implementó la consulta de reservas y la verificación de pagos para que el p
 - `backend/src/routes/reservation.routes.js`: ruta `POST /reservations/:id/payments/paypal/capture`.
 - `frontend/src/pages/OwnerReservations.jsx`: panel de reservas y pagos del propietario.
 - `frontend/src/pages/ReservationPay.jsx`: captura automática, pago manual y acceso a organizar partido.
+- `frontend/src/pages/MyReservations.jsx` y `frontend/src/pages/ReservationDetail.jsx`: consulta del historial y detalle persistente de reservas del jugador.
 - `frontend/src/pages/CreateMatch.jsx`: solo reservas confirmadas.
 - `frontend/src/App.jsx`, `frontend/src/components/Navbar.jsx`, `frontend/src/pages/OwnerCourts.jsx` y `frontend/src/api/reservations.js`: rutas, navegación y llamadas a la API.
 
