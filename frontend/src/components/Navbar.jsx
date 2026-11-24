@@ -44,7 +44,9 @@ const Navbar = () => {
     pathname === "/courts/new" ||
     /^\/courts\/\d+\/(edit|schedules|horarios)$/.test(pathname);
   const enReservas =
-    pathname === "/reservations/owner" || pathname === "/owner/reservations";
+    pathname === "/reservations/owner" ||
+    pathname === "/owner/reservations";
+  const enMisReservas = pathname === "/reservations" || /^\/reservations\/\d+$/.test(pathname);
   const enPerfil = pathname === "/profile";
 
   return (
@@ -81,6 +83,12 @@ const Navbar = () => {
                     label="Crear partido"
                     icon={Trophy}
                     active={enCrearPartido}
+                  />
+                  <NavItem
+                    to="/reservations"
+                    label="Mis reservas"
+                    icon={CalendarCheck}
+                    active={enMisReservas}
                   />
                 </>
               ) : null}
