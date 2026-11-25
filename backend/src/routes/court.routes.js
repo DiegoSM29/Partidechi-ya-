@@ -20,6 +20,18 @@ router.post(
   authorize("PROPIETARIO"),
   cierreController.apply
 );
+router.get(
+  "/closures",
+  authenticate,
+  authorize("PROPIETARIO"),
+  cierreController.listByDate
+);
+router.delete(
+  "/:id/closures",
+  authenticate,
+  authorize("PROPIETARIO"),
+  cierreController.reopen
+);
 router.get("/", canchaController.listAll);
 router.get("/mine", authenticate, authorize("PROPIETARIO"), canchaController.listMine);
 router.get("/:id", canchaController.getById);
@@ -64,6 +76,7 @@ for (const base of ["schedules", "horarios"]) {
 
 // La disponibilidad publica se deriva de horarios registrados y reservas.
 router.get("/:id/availability", horarioController.getAvailability);
+router.get("/:id/calendar", horarioController.getMonthlyAvailability);
 
 // Alias para solicitar una reserva indicando la cancha en la ruta.
 router.post("/:id/reservations", authenticate, reservaController.create);

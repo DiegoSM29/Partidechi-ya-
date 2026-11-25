@@ -58,6 +58,7 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | `PATCH` | `/api/v1/courts/:id/schedules/:scheduleId` | Propietario | Editar una franja existente. |
 | `DELETE` | `/api/v1/courts/:id/schedules/:scheduleId` | Propietario | Eliminar una franja existente. |
 | `GET` | `/api/v1/courts/:id/availability` | No | Consultar turnos dentro de los horarios registrados, excluyendo reservas. |
+| `GET` | `/api/v1/courts/:id/calendar?mes=YYYY-MM` | No | Consultar el estado diario del mes: disponible, cerrada, sin horario o sin turnos libres. |
 
 > **Regla de negocio:** los horarios usan días de `0` (domingo) a `6` (sábado) y horas `HH:mm`. Solo los intervalos registrados pueden reservarse; las horas no registradas no están disponibles. Una reserva debe quedar completamente dentro de un intervalo registrado y no puede superponerse con otra reserva pendiente o confirmada. Las reservas canceladas liberan la franja.
 
@@ -129,7 +130,9 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 |---|---|---|---|
 | `POST` | `/api/v1/courts/closures/preview` | Propietario | Revisar las canchas propias y reservas activas que afectaria el cierre. |
 | `POST` | `/api/v1/courts/closures` | Propietario | Cerrar canchas propias para una fecha, cancelar reservas activas y notificar a sus jugadores. |
+| `GET` | `/api/v1/courts/closures?fecha=YYYY-MM-DD` | Propietario | Consultar los cierres de sus propias canchas para una fecha. |
+| `DELETE` | `/api/v1/courts/:id/closures?fecha=YYYY-MM-DD` | Propietario | Reabrir una cancha propia en una fecha, sin modificar otras fechas ni reactivar reservas canceladas. |
 | `GET` | `/api/v1/notifications` | Sí (JWT) | Consultar las notificaciones del usuario autenticado. |
 | `PATCH` | `/api/v1/notifications/:id/read` | Sí (JWT) | Marcar como leída una notificación propia. |
 
-El cierre rechaza fechas pasadas y duplicados, afecta solo a las canchas seleccionadas en la fecha indicada y no cambia horarios semanales ni pagos. La creación del cierre, cancelación de reservas y notificaciones se realiza en una sola transacción.
+El cierre rechaza fechas pasadas, duplicados y días sin horario semanal de funcionamiento; afecta solo a las canchas seleccionadas en la fecha indicada y no cambia horarios semanales ni pagos. La creación del cierre, cancelación de reservas y notificaciones se realiza en una sola transacción. La consulta requiere una fecha y solo devuelve cierres de canchas del propietario autenticado. Reabrir elimina únicamente el cierre de esa cancha y fecha; la disponibilidad resultante se deriva del horario semanal y de las reservas activas, y las reservas canceladas no se reactivan.

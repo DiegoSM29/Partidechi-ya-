@@ -21,6 +21,7 @@ Todos los endpoints operan bajo el prefijo base `/api/v1`.
 * PATCH `/api/v1/courts/:id/schedules/:scheduleId` - Editar una franja horaria (Propietario)
 * DELETE `/api/v1/courts/:id/schedules/:scheduleId` - Eliminar una franja horaria (Propietario)
 * GET `/api/v1/courts/:id/availability` - Consultar turnos dentro de horarios registrados, excluyendo reservas
+* GET `/api/v1/courts/:id/calendar?mes=YYYY-MM` - Consultar disponibilidad mensual por día
 
 ## Reservas y Pagos
 * POST `/api/v1/reservations` - Solicitar reserva (con transaccion de disponibilidad)
@@ -55,7 +56,9 @@ Solo el organizador puede eliminar su partido publicado y unicamente si faltan a
 ## Cierres Puntuales y Notificaciones
 * POST `/api/v1/courts/closures/preview` - Revisar canchas propias y reservas afectadas (Propietario)
 * POST `/api/v1/courts/closures` - Aplicar cierre de canchas seleccionadas para una fecha (Propietario)
+* GET `/api/v1/courts/closures?fecha=YYYY-MM-DD` - Consultar cierres de canchas propias por fecha (Propietario)
+* DELETE `/api/v1/courts/:id/closures?fecha=YYYY-MM-DD` - Reabrir una cancha propia para esa fecha (Propietario)
 * GET `/api/v1/notifications` - Consultar notificaciones propias
 * PATCH `/api/v1/notifications/:id/read` - Marcar una notificación propia como leída
 
-El cierre cancela las reservas pendientes o confirmadas y notifica a los jugadores en una transacción. No admite fechas pasadas ni cierres duplicados, no modifica pagos ni horarios semanales y bloquea disponibilidad y nuevas reservas para esa fecha.
+El cierre cancela las reservas pendientes o confirmadas y notifica a los jugadores en una transacción. No admite fechas pasadas, cierres duplicados ni días sin horario semanal, y no modifica pagos ni horarios semanales. La consulta y reapertura solo operan sobre cierres de canchas del propietario autenticado. Al reabrir, la disponibilidad vuelve a derivarse de los horarios semanales descontando reservas activas; las reservas canceladas no se reactivan. El propietario realiza estas acciones desde el calendario mensual de cada cancha.

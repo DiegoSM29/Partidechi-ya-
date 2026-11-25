@@ -97,7 +97,7 @@ const OwnerCourts = () => {
                     <Link to={`/reservations/owner?cancha=${cancha.id_cancha}`} aria-label={`Ver reservas de ${cancha.nombre}`} title="Reservas y pagos" className="rounded-lg p-2.5 text-emerald-800 transition hover:bg-emerald-50">
                       <CalendarCheck size={17} />
                     </Link>
-                    <Link to={`/courts/${cancha.id_cancha}/schedules`} aria-label={`Configurar horarios de ${cancha.nombre}`} title="Horarios y disponibilidad" className="rounded-lg p-2.5 text-emerald-800 transition hover:bg-emerald-50">
+                    <Link to={`/courts/${cancha.id_cancha}/schedules`} aria-label={`Ver disponibilidad y administrar cierres de ${cancha.nombre}`} title="Disponibilidad y cierres" className="rounded-lg p-2.5 text-emerald-800 transition hover:bg-emerald-50">
                       <CalendarClock size={17} />
                     </Link>
                     <Link to={`/courts/${cancha.id_cancha}/edit`} aria-label={`Editar ${cancha.nombre}`} title="Editar cancha" className="rounded-lg p-2.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">

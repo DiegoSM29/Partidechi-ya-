@@ -50,8 +50,8 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 * Autenticacion: /api/v1/auth/register, /api/v1/auth/login
 * Usuarios: /api/v1/users/me
 * Canchas: GET /api/v1/courts, GET /api/v1/courts/mine, POST /api/v1/courts, PATCH y DELETE /api/v1/courts/:id
-* Horarios: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability
-* Cierres: POST /api/v1/courts/closures/preview, POST /api/v1/courts/closures
+* Horarios y calendario mensual: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability, /api/v1/courts/:id/calendar?mes=YYYY-MM
+* Cierres: POST /api/v1/courts/closures/preview, POST /api/v1/courts/closures, GET /api/v1/courts/closures?fecha=YYYY-MM-DD, DELETE /api/v1/courts/:id/closures?fecha=YYYY-MM-DD
 * Reservas: POST /api/v1/reservations, GET /api/v1/reservations, GET /api/v1/reservations/:id, POST /api/v1/reservations/:id/cancel, POST /api/v1/reservations/:id/confirm
 * Pagos: GET /api/v1/reservations/:id/payments/amount, POST /api/v1/reservations/:id/payments/paypal/simulate, POST /api/v1/reservations/:id/payments/paypal/capture, POST /api/v1/reservations/:id/payments, GET /api/v1/reservations/:id/payments, POST /api/v1/payments/:id/verify
 * Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, DELETE /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants
@@ -267,8 +267,10 @@ El jugador puede consultar su historial de reservas independientemente de la nav
 
 ## Cierre Puntual de Canchas (Propietario)
 
-- El propietario puede seleccionar una o varias canchas propias o elegir cerrar todas para una fecha actual o futura.
-- Antes de aplicar el cierre, se presenta un resumen de las canchas y reservas pendientes/confirmadas afectadas, y se solicita confirmación explícita.
+- Desde el calendario mensual de una cancha propia, el propietario puede cerrar un día actual o futuro, revisar sus reservas pendientes/confirmadas afectadas y confirmar la operación.
+- No se permite cerrar una fecha sin horario semanal configurado para ese día.
 - El backend crea los cierres, cancela las reservas y registra una notificación para cada jugador dentro de una transacción. Si la operación falla, no se aplica ningún cambio parcial.
 - La disponibilidad no muestra turnos reservables y las nuevas reservas se rechazan para una cancha cerrada en esa fecha. El cierre no modifica el horario semanal ni el importe/estado de pagos.
 - Un índice único por cancha y fecha evita cierres duplicados. Los jugadores consultan y marcan como leídas sus notificaciones en `/notifications`.
+- Propietarios y jugadores consultan un calendario mensual; cada fecha indica si hay turnos disponibles, está cerrada, no tiene horario configurado o no tiene turnos libres.
+- El propietario puede reabrir un día desde el calendario de esa cancha; solo se elimina el cierre seleccionado y se mantienen canceladas las reservas anteriores.

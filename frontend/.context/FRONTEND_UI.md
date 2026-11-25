@@ -13,5 +13,6 @@
 * **Retroalimentacion Visual**: 
   * Indicadores de carga (*spinners*) en botones durante peticiones asíncronas para evitar dobles envíos.
   * Alertas flotantes o mensajes descriptivos sincronizados con los errores devueltos por el backend (`{success: false, error: "..."}`).
-* **Cierre de Canchas**: La vista del propietario permite seleccionar canchas propias y una fecha no pasada, revisar las reservas pendientes/confirmadas afectadas y confirmar antes de aplicar el cierre.
+* **Calendario mensual de cancha**: Propietarios y jugadores consultan un mes a la vez. Cada día indica si está disponible, cerrado, no tiene horario semanal configurado o no tiene turnos libres.
+* **Cierre de Canchas**: Desde el calendario de cada cancha propia, el propietario puede cerrar un día actual/futuro que tenga horario semanal, revisar las reservas pendientes/confirmadas afectadas y confirmar en un diálogo modal; también puede reabrir un día cerrado. La reapertura no recupera reservas canceladas; los horarios vuelven a estar disponibles según el horario semanal y las reservas activas.
 * **Notificaciones**: Los jugadores pueden consultar las notificaciones persistentes de cancelacion y marcar cada una como leida.
