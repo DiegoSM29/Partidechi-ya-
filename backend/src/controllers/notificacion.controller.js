@@ -14,6 +14,17 @@ const listMine = asyncHandler(async (req, res) => {
   });
 });
 
+const unreadCount = asyncHandler(async (req, res) => {
+  const count = await prisma.notificacion.count({
+    where: { id_usuario: req.user.id_usuario, leida: false },
+  });
+  res.status(200).json({
+    success: true,
+    message: "Contador de notificaciones consultado correctamente",
+    data: { count },
+  });
+});
+
 const markRead = asyncHandler(async (req, res) => {
   const id_notificacion = Number(req.params.id);
   if (!Number.isInteger(id_notificacion) || id_notificacion < 1) {
@@ -34,4 +45,4 @@ const markRead = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { listMine, markRead };
+module.exports = { listMine, unreadCount, markRead };
