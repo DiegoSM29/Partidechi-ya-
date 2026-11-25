@@ -155,6 +155,12 @@ const CourtAvailability = () => {
             ) : null}
           </div>
 
+          {disponibilidad?.cerrada ? (
+            <div role="status" className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+              Esta cancha está cerrada para la fecha seleccionada. No se aceptan nuevas reservas.
+            </div>
+          ) : null}
+
           {Array.isArray(disponibilidad?.slots) && disponibilidad.slots.length > 0 ? (
             <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
               <div>
@@ -295,6 +301,8 @@ const CourtAvailability = () => {
               <p className="mt-1 text-sm text-slate-500">
                 {disponibilidad?.horarios?.length === 0
                   ? "La cancha no tiene horarios configurados para este día. Solo las franjas registradas son reservables."
+                  : disponibilidad?.cerrada
+                  ? "El propietario cerró esta cancha para la fecha seleccionada."
                   : "Todos los turnos de este día ya se encuentran confirmados/reservados o no hay disponibilidad."}
               </p>
             </div>

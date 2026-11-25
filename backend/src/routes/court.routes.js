@@ -2,11 +2,24 @@ const { Router } = require("express");
 const canchaController = require("../controllers/cancha.controller");
 const horarioController = require("../controllers/horario.controller");
 const reservaController = require("../controllers/reserva.controller");
+const cierreController = require("../controllers/cierre.controller");
 const { authenticate } = require("../middlewares/auth.middleware");
 const { authorize } = require("../middlewares/role.middleware");
 
 const router = Router();
 
+router.post(
+  "/closures/preview",
+  authenticate,
+  authorize("PROPIETARIO"),
+  cierreController.preview
+);
+router.post(
+  "/closures",
+  authenticate,
+  authorize("PROPIETARIO"),
+  cierreController.apply
+);
 router.get("/", canchaController.listAll);
 router.get("/mine", authenticate, authorize("PROPIETARIO"), canchaController.listMine);
 router.get("/:id", canchaController.getById);

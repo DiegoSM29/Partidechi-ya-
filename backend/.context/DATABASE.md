@@ -11,6 +11,7 @@ Base de datos relacional implementada en PostgreSQL mediante Prisma ORM.
 * **partidos**: id_partido (PK), id_organizador (FK -> usuarios), id_reserva (FK -> reservas, opcional), nombre, deporte, fecha_hora, jugadores_maximos, descripcion, estado. La capacidad se define para cada partido y controla sus plazas disponibles.
 * **participantes**: id_participante (PK), id_partido (FK -> partidos), id_usuario (FK -> usuarios), estado, fecha_union.
 * **notificaciones**: id_notificacion (PK), id_usuario (FK -> usuarios), titulo, mensaje, leida, fecha_creacion.
+* **cierres_canchas**: id_cierre (PK), id_cancha (FK -> canchas), fecha, creado_en. La combinacion cancha/fecha es unica; un cierre puntual no cambia los horarios semanales.
 
 ## Cuentas de Prueba / Credenciales de Desarrollo
 

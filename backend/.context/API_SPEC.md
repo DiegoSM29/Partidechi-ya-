@@ -51,3 +51,11 @@ Solo el organizador puede eliminar su partido publicado y unicamente si faltan a
 * GET `/api/v1/admin/reports` - Consultar incidencias y reportes
 * PATCH `/api/v1/admin/users/:id/status` - Cambiar estado de cuenta
 * GET `/api/v1/admin/statistics` - Consultar estadisticas generales
+
+## Cierres Puntuales y Notificaciones
+* POST `/api/v1/courts/closures/preview` - Revisar canchas propias y reservas afectadas (Propietario)
+* POST `/api/v1/courts/closures` - Aplicar cierre de canchas seleccionadas para una fecha (Propietario)
+* GET `/api/v1/notifications` - Consultar notificaciones propias
+* PATCH `/api/v1/notifications/:id/read` - Marcar una notificación propia como leída
+
+El cierre cancela las reservas pendientes o confirmadas y notifica a los jugadores en una transacción. No admite fechas pasadas ni cierres duplicados, no modifica pagos ni horarios semanales y bloquea disponibilidad y nuevas reservas para esa fecha.

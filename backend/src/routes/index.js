@@ -5,6 +5,7 @@ const courtRoutes = require("./court.routes");
 const reservationRoutes = require("./reservation.routes");
 const paymentRoutes = require("./payment.routes");
 const matchRoutes = require("./match.routes");
+const notificationRoutes = require("./notification.routes");
 
 const router = Router();
 
@@ -23,5 +24,6 @@ router.use("/courts", courtRoutes);
 router.use("/reservations", reservationRoutes);
 router.use("/payments", paymentRoutes);
 router.use("/matches", matchRoutes);
+router.use("/notifications", notificationRoutes);
 
 module.exports = router;

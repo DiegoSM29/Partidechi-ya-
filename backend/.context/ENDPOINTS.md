@@ -122,3 +122,14 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | `GET` | `/api/v1/admin/statistics` | Administrador | Consultar estadísticas generales de la plataforma. |
 
 > **Regla de acceso:** Los endpoints del módulo de administración están protegidos exclusivamente para usuarios con el rol `administrador`.
+
+## 8. Cierres Puntuales y Notificaciones
+
+| Método | Endpoint | Autenticación | Descripción |
+|---|---|---|---|
+| `POST` | `/api/v1/courts/closures/preview` | Propietario | Revisar las canchas propias y reservas activas que afectaria el cierre. |
+| `POST` | `/api/v1/courts/closures` | Propietario | Cerrar canchas propias para una fecha, cancelar reservas activas y notificar a sus jugadores. |
+| `GET` | `/api/v1/notifications` | Sí (JWT) | Consultar las notificaciones del usuario autenticado. |
+| `PATCH` | `/api/v1/notifications/:id/read` | Sí (JWT) | Marcar como leída una notificación propia. |
+
+El cierre rechaza fechas pasadas y duplicados, afecta solo a las canchas seleccionadas en la fecha indicada y no cambia horarios semanales ni pagos. La creación del cierre, cancelación de reservas y notificaciones se realiza en una sola transacción.
