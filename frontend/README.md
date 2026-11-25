@@ -25,7 +25,7 @@ frontend/
     ├── utils/validators.js   → Validacion en cliente (correo, password >= 8, etc.)
     ├── utils/roles.js        → Mapeo rol -> vista principal y etiquetas/badges
     ├── components/           → ProtectedRoute, PublicOnlyRoute, Navbar, AuthLayout,
-    │                           Alert, Spinner, LoadingScreen, FormFields,
+    │                           Alert, Spinner, LoadingScreen, FormFields, CourtMonthlyCalendar,
     │                           CourtLocationPicker, CourtLocationModal, CourtMapMarker
     └── pages/                → Login, Register, Profile, OwnerCourts, CourtForm, NotFound
 ```
@@ -64,8 +64,8 @@ npm run dev        → http://localhost:5173
 | `/courts` | Propietario | Consulta, visualizacion del mapa y administracion de canchas propias |
 | `/courts/new` | Propietario | Registro de cancha |
 | `/courts/:id/edit` | Propietario | Edicion de cancha propia |
-| `/courts/:id/schedules` | Propietario | Configuracion de horarios registrados y consulta de disponibilidad |
-| `/courts/closures` | Propietario | Cierre puntual de una o varias canchas propias para una fecha |
+| `/courts/:id/schedules` | Propietario | Configurar horarios, consultar el calendario mensual y cerrar/reabrir días de esa cancha |
+| `/courts/:id/availability` | Protegida | Consultar el calendario mensual y los turnos de una fecha para una cancha |
 | `/reservations/new` | Protegida | Solicitud de reserva desde un horario disponible |
 | `/reservations/:id/pay` | Protegida | Pago PayPal/manual y confirmacion automatica de la reserva |
 | `/reservations` | Jugador | Consulta de reservas proximas, pasadas y canceladas |
@@ -100,15 +100,21 @@ Desde **Mis canchas**, el botón de calendario abre `/courts/:id/schedules`. La 
 
 * Registrar y eliminar franjas semanales de funcionamiento.
 * Las franjas no registradas no se ofrecen para reservar.
-* Consultar la disponibilidad resultante para una fecha, mostrando turnos disponibles y reservados.
+* Consultar un mes a la vez; cada día muestra si hay horarios disponibles, está cerrado, no tiene horario semanal o no quedan turnos libres.
+* Seleccionar un día para consultar sus turnos disponibles y reservados.
+* Cerrar o reabrir ese día. Solo se puede cerrar si hay un horario semanal configurado para esa fecha; las reservas afectadas se revisan en un modal antes de confirmar.
 
 La API rechaza horarios solapados, reservas fuera de los intervalos registrados y reservas que choquen con otra reserva activa.
 
-## Cierre Puntual de Canchas
+## Calendario Mensual y Cierres Puntuales
 
-Desde **Cerrar canchas**, el propietario puede seleccionar una o varias canchas propias (o todas) y una fecha actual o futura. Antes de aplicar el cierre, la vista muestra las canchas y sus reservas pendientes o confirmadas afectadas para que el propietario confirme la operación.
+No existe una sección global para cerrar canchas. Desde **Mis canchas**, el propietario abre el calendario de una cancha específica y selecciona el día que desea cerrar o reabrir. Antes de aplicar el cierre, se muestran las reservas pendientes o confirmadas de esa cancha y fecha para confirmar la operación.
 
-El backend aplica el cierre y cancela las reservas activas de forma atómica; los jugadores reciben una notificación persistente consultable en `/notifications`. Los pagos asociados conservan su importe y estado. Un cierre solo se aplica a la fecha indicada, no altera los horarios semanales, impide nuevos cierres duplicados y hace que disponibilidad y nuevas reservas rechacen esa fecha.
+El calendario mensual está disponible tanto para propietarios como para jugadores. Cada día distingue entre disponibilidad, cierre, ausencia de horario semanal y ausencia de turnos libres. El calendario se genera con los horarios semanales, las reservas pendientes/confirmadas y los cierres de ese mes.
+
+El backend aplica el cierre y cancela las reservas activas de forma atómica; los jugadores reciben una notificación persistente consultable en `/notifications`. Los pagos asociados conservan su importe y estado. Un cierre solo afecta la cancha y fecha indicadas, no altera horarios semanales, e impide nuevos cierres duplicados y reservas para ese día.
+
+Al reabrir, se elimina solo el cierre de la cancha y fecha seleccionadas. La disponibilidad vuelve a generarse con los horarios semanales registrados, descontando las reservas activas. Las reservas canceladas por el cierre permanecen canceladas y los jugadores deben crear una nueva reserva. La API valida la propiedad de la cancha.
 
 ## Reservas y Pagos del Propietario
 

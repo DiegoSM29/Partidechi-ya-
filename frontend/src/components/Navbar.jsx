@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Bell, CalendarCheck, CalendarX, LogOut, MapPinned, Search, Trophy, UserRound, UsersRound } from "lucide-react";
+import { Bell, CalendarCheck, LogOut, MapPinned, Search, Trophy, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getHomeForRole } from "../utils/roles";
@@ -79,7 +79,6 @@ const Navbar = () => {
     pathname === "/reservations/owner" ||
     pathname === "/owner/reservations";
   const enMisReservas = pathname === "/reservations" || /^\/reservations\/\d+$/.test(pathname);
-  const enCerrarCanchas = pathname === "/courts/closures";
   const enPerfil = pathname === "/profile";
 
   return (
@@ -132,12 +131,6 @@ const Navbar = () => {
                     label="Mis canchas"
                     icon={MapPinned}
                     active={enMisCanchas}
-                  />
-                  <NavItem
-                    to="/courts/closures"
-                    label="Cerrar canchas"
-                    icon={CalendarX}
-                    active={enCerrarCanchas}
                   />
                   <NavItem
                     to="/reservations/owner"

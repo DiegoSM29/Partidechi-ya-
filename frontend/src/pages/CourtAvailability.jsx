@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Calendar, Clock, MapPin, MapPinned } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, MapPinned } from "lucide-react";
 import api, { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
+import CourtMonthlyCalendar from "../components/CourtMonthlyCalendar";
 
 const CourtLocationModal = lazy(() => import("../components/CourtLocationModal"));
 
@@ -20,6 +21,7 @@ const CourtAvailability = () => {
   const [error, setError] = useState("");
   const [canchaEnMapa, setCanchaEnMapa] = useState(null);
   const [horariosSeleccionados, setHorariosSeleccionados] = useState([]);
+  const solicitudDisponibilidad = useRef(0);
 
   const minutosDeHora = (hora) => {
     const [horas, minutos] = hora.split(":").map(Number);
@@ -27,12 +29,14 @@ const CourtAvailability = () => {
   };
 
   const cargarDisponibilidad = async (fechaSeleccionada = fecha) => {
+    const solicitud = ++solicitudDisponibilidad.current;
     setCargando(true);
     setError("");
     try {
       const params = {};
       if (fechaSeleccionada) params.fecha = fechaSeleccionada;
       const { data } = await api.get(`/courts/${id}/availability`, { params });
+      if (solicitud !== solicitudDisponibilidad.current) return;
       setDisponibilidad(data?.data || null);
       if (data?.data?.cancha) {
         setCancha(data.data.cancha);
@@ -44,9 +48,11 @@ const CourtAvailability = () => {
         setFecha(data.data.fecha);
       }
     } catch (e) {
-      setError(getApiError(e));
+      if (solicitud === solicitudDisponibilidad.current) {
+        setError(getApiError(e));
+      }
     } finally {
-      setCargando(false);
+      if (solicitud === solicitudDisponibilidad.current) setCargando(false);
     }
   };
 
@@ -54,9 +60,10 @@ const CourtAvailability = () => {
     cargarDisponibilidad(fechaParam || fecha);
   }, [id]);
 
-  const handleBuscar = (e) => {
-    e.preventDefault();
-    cargarDisponibilidad(fecha);
+  const seleccionarFecha = (fechaSeleccionada) => {
+    setFecha(fechaSeleccionada);
+    setHorariosSeleccionados([]);
+    cargarDisponibilidad(fechaSeleccionada);
   };
 
   return (
@@ -100,33 +107,13 @@ const CourtAvailability = () => {
         </div>
       </header>
 
-      <form onSubmit={handleBuscar} className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="fecha" className="text-sm font-medium text-slate-700">
-            Seleccionar fecha
-          </label>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input
-              id="fecha"
-              type="date"
-              value={fecha}
-              onChange={(e) => {
-                setFecha(e.target.value);
-                setHorariosSeleccionados([]);
-              }}
-              className="rounded-lg border border-slate-200 pl-9 pr-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-            />
-          </div>
-        </div>
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800"
-        >
-          Consultar disponibilidad
-        </button>
-      </form>
-
+      <div className="mb-6">
+        <CourtMonthlyCalendar
+          idCancha={id}
+          fechaSeleccionada={fecha || disponibilidad?.fecha}
+          onSeleccionarFecha={seleccionarFecha}
+        />
+      </div>
       {error ? (
         <div className="mb-5">
           <Alert>{error}</Alert>

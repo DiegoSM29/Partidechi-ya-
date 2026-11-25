@@ -18,7 +18,6 @@ import ReservationPay from "./pages/ReservationPay";
 import MyReservations from "./pages/MyReservations";
 import ReservationDetail from "./pages/ReservationDetail";
 import OwnerReservations from "./pages/OwnerReservations";
-import CourtClosures from "./pages/CourtClosures";
 import Notifications from "./pages/Notifications";
 import Matches from "./pages/Matches";
 import MatchDetail from "./pages/MatchDetail";
@@ -69,14 +68,6 @@ const App = () => (
           element={
             <ProtectedRoute rol="PROPIETARIO">
               <OwnerCourts />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/courts/closures"
-          element={
-            <ProtectedRoute rol="PROPIETARIO">
-              <CourtClosures />
             </ProtectedRoute>
           }
         />

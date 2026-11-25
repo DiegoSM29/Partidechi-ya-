@@ -13,6 +13,31 @@ const findClosures = (id_canchas, fecha, client = prisma) =>
     select: { id_cancha: true },
   });
 
+const findClosureDatesForCourt = (id_cancha, inicio, fin, client = prisma) =>
+  client.cierreCancha.findMany({
+    where: { id_cancha, fecha: { gte: inicio, lt: fin } },
+    select: { fecha: true },
+  });
+
+const findOwnedClosures = (id_propietario, fecha, client = prisma) =>
+  client.cierreCancha.findMany({
+    where: { fecha, cancha: { id_propietario } },
+    select: {
+      id_cierre: true,
+      id_cancha: true,
+      fecha: true,
+      creado_en: true,
+      cancha: { select: { nombre: true } },
+    },
+    orderBy: [{ id_cancha: "asc" }],
+  });
+
+const findOwnedCourt = (id_propietario, id_cancha, client = prisma) =>
+  client.cancha.findFirst({
+    where: { id_propietario, id_cancha },
+    select: { id_cancha: true, nombre: true },
+  });
+
 const findAffectedReservations = (id_canchas, fecha, client = prisma) =>
   client.reserva.findMany({
     where: {
@@ -55,12 +80,19 @@ const isClosed = (id_cancha, fecha, client = prisma) =>
     select: { id_cierre: true },
   });
 
+const deleteClosure = (id_cancha, fecha, client = prisma) =>
+  client.cierreCancha.deleteMany({ where: { id_cancha, fecha } });
+
 module.exports = {
   findOwnedCourts,
   findClosures,
+  findClosureDatesForCourt,
+  findOwnedClosures,
+  findOwnedCourt,
   findAffectedReservations,
   createClosures,
   cancelActiveReservations,
   createNotifications,
   isClosed,
+  deleteClosure,
 };

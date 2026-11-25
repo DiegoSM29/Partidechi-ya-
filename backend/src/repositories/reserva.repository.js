@@ -48,6 +48,22 @@ const findByCourtAndDate = (id_cancha, fecha, client = prisma) =>
     },
   });
 
+const findByCourtAndDateRange = (id_cancha, inicio, fin, client = prisma) =>
+  client.reserva.findMany({
+    where: {
+      id_cancha,
+      fecha: { gte: inicio, lt: fin },
+      estado: { in: ["CONFIRMADA", "PENDIENTE"] },
+    },
+    orderBy: [{ fecha: "asc" }, { hora_inicio: "asc" }],
+    select: {
+      fecha: true,
+      hora_inicio: true,
+      hora_fin: true,
+      estado: true,
+    },
+  });
+
 // Reservas que bloquean la cancha (pendientes por pagar o confirmadas)
 const findOverlapping = (id_cancha, fecha, hora_inicio, hora_fin, client = prisma) =>
   client.reserva.findMany({
@@ -81,6 +97,7 @@ const updateEstado = (id_reserva, estado, client = prisma) =>
 
 module.exports = {
   findByCourtAndDate,
+  findByCourtAndDateRange,
   findOverlapping,
   create,
   findById,

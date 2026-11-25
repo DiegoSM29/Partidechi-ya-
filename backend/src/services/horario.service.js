@@ -237,6 +237,125 @@ const parseDuration = (value) => {
   return duration;
 };
 
+const parseMonth = (value) => {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (year < 1) return null;
+
+  const start = new Date(0);
+  start.setUTCHours(0, 0, 0, 0);
+  start.setUTCFullYear(year, month - 1, 1);
+  const end = new Date(0);
+  end.setUTCHours(0, 0, 0, 0);
+  end.setUTCFullYear(year, month, 1);
+  return {
+    year,
+    month,
+    start,
+    end,
+    days: Math.round((end - start) / 86400000),
+    texto: value,
+  };
+};
+
+const buildSlots = (horarios, reservas, cerrado, duracion) => {
+  const slots = [];
+  for (const franja of horarios) {
+    const start = timeToMinutes(franja.hora_inicio);
+    const end = timeToMinutes(franja.hora_fin);
+    for (let cursor = start; cursor + duracion <= end; cursor += duracion) {
+      const hora_inicio = minutesToTime(cursor);
+      const hora_fin = minutesToTime(cursor + duracion);
+      const reservado = reservas.some((reserva) =>
+        intervalsOverlap(hora_inicio, hora_fin, reserva.hora_inicio, reserva.hora_fin)
+      );
+      slots.push({
+        hora_inicio,
+        hora_fin,
+        disponible: !cerrado && !reservado,
+        motivo: cerrado ? "cancha_cerrada" : reservado ? "reservado" : null,
+      });
+    }
+  }
+  return slots.sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+};
+
+const getMonthlyAvailability = async (rawId, query = {}) => {
+  const cancha = await getCourt(rawId);
+  const mes = parseMonth(query.mes ?? query.month);
+  if (!mes) {
+    throw new ApiError(400, 'El mes debe tener el formato "YYYY-MM"');
+  }
+  const duracion = parseDuration(query.duracion ?? query.duration);
+  const [horarios, reservas, cierres] = await Promise.all([
+    horarioRepository.findByCourtId(cancha.id_cancha),
+    reservaRepository.findByCourtAndDateRange(
+      cancha.id_cancha,
+      mes.start,
+      mes.end
+    ),
+    cierreRepository.findClosureDatesForCourt(
+      cancha.id_cancha,
+      mes.start,
+      mes.end
+    ),
+  ]);
+
+  const reservasPorFecha = new Map();
+  for (const reserva of reservas) {
+    const fecha = new Date(reserva.fecha).toISOString().slice(0, 10);
+    const actuales = reservasPorFecha.get(fecha) || [];
+    actuales.push(reserva);
+    reservasPorFecha.set(fecha, actuales);
+  }
+  const cierresPorFecha = new Set(
+    cierres.map((cierre) => new Date(cierre.fecha).toISOString().slice(0, 10))
+  );
+  const dias = [];
+
+  for (let numeroDia = 1; numeroDia <= mes.days; numeroDia += 1) {
+    const fecha = new Date(0);
+    fecha.setUTCHours(0, 0, 0, 0);
+    fecha.setUTCFullYear(mes.year, mes.month - 1, numeroDia);
+    const fechaTexto = fecha.toISOString().slice(0, 10);
+    const dia_semana = fecha.getUTCDay();
+    const horariosDelDia = horarios.filter(
+      (horario) => horario.dia_semana === dia_semana
+    );
+    const cerrado = cierresPorFecha.has(fechaTexto);
+    const slots = buildSlots(
+      horariosDelDia,
+      reservasPorFecha.get(fechaTexto) || [],
+      cerrado,
+      duracion
+    );
+    const turnos_disponibles = slots.filter((slot) => slot.disponible).length;
+    const estado = cerrado
+      ? "CERRADA"
+      : horariosDelDia.length === 0
+      ? "SIN_HORARIO"
+      : turnos_disponibles > 0
+      ? "DISPONIBLE"
+      : "SIN_TURNOS";
+
+    dias.push({
+      fecha: fechaTexto,
+      dia_semana,
+      estado,
+      cerrada: cerrado,
+      disponible: turnos_disponibles > 0,
+      turnos_disponibles,
+      turnos_totales: slots.length,
+    });
+  }
+
+  return { cancha, mes: mes.texto, duracion, dias };
+};
+
 // Solo los intervalos de atencion registrados generan turnos reservables.
 const getAvailability = async (rawId, query = {}) => {
   const cancha = await getCourt(rawId);
@@ -253,26 +372,7 @@ const getAvailability = async (rawId, query = {}) => {
     cierreRepository.isClosed(cancha.id_cancha, fechaInfo.fecha),
   ]);
 
-  const slots = [];
-  for (const franja of horarios) {
-    const start = timeToMinutes(franja.hora_inicio);
-    const end = timeToMinutes(franja.hora_fin);
-    for (let cursor = start; cursor + duracion <= end; cursor += duracion) {
-      const hora_inicio = minutesToTime(cursor);
-      const hora_fin = minutesToTime(cursor + duracion);
-      const reservado = reservas.some((reserva) =>
-        intervalsOverlap(hora_inicio, hora_fin, reserva.hora_inicio, reserva.hora_fin)
-      );
-      const cerrado = Boolean(cierre);
-      slots.push({
-        hora_inicio,
-        hora_fin,
-        disponible: !cerrado && !reservado,
-        motivo: cerrado ? "cancha_cerrada" : reservado ? "reservado" : null,
-      });
-    }
-  }
-  slots.sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+  const slots = buildSlots(horarios, reservas, Boolean(cierre), duracion);
   const disponibles = slots.filter((slot) => slot.disponible);
 
   return {
@@ -299,4 +399,5 @@ module.exports = {
   updateSchedule,
   deleteSchedule,
   getAvailability,
+  getMonthlyAvailability,
 };
