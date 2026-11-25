@@ -5,6 +5,7 @@ const canchaRepository = require("../repositories/cancha.repository");
 const horarioRepository = require("../repositories/horario.repository");
 const reservaRepository = require("../repositories/reserva.repository");
 const cierreRepository = require("../repositories/cierre.repository");
+const confiabilidadService = require("./confiabilidad.service");
 const {
   DIAS_SEMANA,
   normalizeTime,
@@ -147,6 +148,7 @@ const listSchedules = async (rawId) => {
 
 const createSchedules = async (id_propietario, rawId, input) => {
   const cancha = await getOwnedCourt(id_propietario, rawId);
+  await confiabilidadService.assertCanPublishAvailability(id_propietario);
   const items = extractItems(input);
   if (items.length === 0) throw new ApiError(400, "Envía al menos un horario");
   const payloads = items.map((item) => ({
@@ -156,6 +158,7 @@ const createSchedules = async (id_propietario, rawId, input) => {
   assertInternalConflicts(payloads);
 
   await prisma.$transaction(async (tx) => {
+    await confiabilidadService.assertCanPublishAvailability(id_propietario, tx);
     const actuales = await horarioRepository.findByCourtId(cancha.id_cancha, tx);
     for (const payload of payloads) {
       assertNoConflicts(payload, actuales);
@@ -179,8 +182,14 @@ const replaceSchedules = async (id_propietario, rawId, input) => {
     ...buildSchedulePayload(item),
     id_cancha: cancha.id_cancha,
   }));
+  if (payloads.length > 0) {
+    await confiabilidadService.assertCanPublishAvailability(id_propietario);
+  }
   assertInternalConflicts(payloads);
   await prisma.$transaction(async (tx) => {
+    if (payloads.length > 0) {
+      await confiabilidadService.assertCanPublishAvailability(id_propietario, tx);
+    }
     await horarioRepository.deleteByCourt(cancha.id_cancha, tx);
     if (payloads.length > 0) {
       await horarioRepository.createMany(payloads, tx);
@@ -214,9 +223,21 @@ const updateSchedule = async (id_propietario, rawId, rawScheduleId, input) => {
   );
 
   const otros = await horarioRepository.findByCourtId(cancha.id_cancha);
+  const publicaDisponibilidad =
+    payload.dia_semana !== actual.dia_semana ||
+    payload.hora_inicio < actual.hora_inicio ||
+    payload.hora_fin > actual.hora_fin;
+  if (publicaDisponibilidad) {
+    await confiabilidadService.assertCanPublishAvailability(id_propietario);
+  }
   assertNoConflicts(payload, otros, id_horario);
 
-  const actualizado = await horarioRepository.update(id_horario, payload);
+  const actualizado = publicaDisponibilidad
+    ? await prisma.$transaction(async (tx) => {
+        await confiabilidadService.assertCanPublishAvailability(id_propietario, tx);
+        return horarioRepository.update(id_horario, payload, tx);
+      })
+    : await horarioRepository.update(id_horario, payload);
   return { cancha, horario: actualizado };
 };
 

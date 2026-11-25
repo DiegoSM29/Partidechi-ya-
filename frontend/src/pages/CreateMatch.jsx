@@ -24,7 +24,9 @@ const CreateMatch = () => {
     isPrivado: false,
   });
   const reservasConfirmadas = reservas.filter(
-    (reserva) => reserva.estado === "CONFIRMADA" && !reserva.partido
+    (reserva) =>
+      reserva.estado === "CONFIRMADA" &&
+      (!reserva.partido || reserva.partido.estado === "CANCELADO")
   );
   const reservaSeleccionada = reservasConfirmadas.find((r) => r.id_reserva == form.id_reserva);
 
@@ -149,15 +151,18 @@ const CreateMatch = () => {
               {reservasConfirmadas.map((r) => (
                 <option key={r.id_reserva} value={r.id_reserva}>
                   #{r.id_reserva} · {r.cancha?.nombre} ({r.cancha?.deporte}) · {formatearFechaReserva(r.fecha)} {r.hora_inicio}-{r.hora_fin} · {r.estado}
+                  {r.partido?.estado === "CANCELADO" ? " · Reutilizable (partido cancelado)" : ""}
                 </option>
               ))}
             </select>
             {reservasConfirmadas.length === 0 ? (
               <p className="mt-1 text-xs text-slate-500">
-                No tienes reservas confirmadas sin un partido asociado. Una reserva se confirma automáticamente al pagar la cancha.
+                No tienes reservas confirmadas disponibles. Una reserva se confirma automáticamente al pagar la cancha.
               </p>
             ) : (
-              <p className="mt-1 text-xs text-slate-500">Solo se muestran reservas confirmadas que todavía no tienen un partido asociado.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Se muestran reservas confirmadas sin partido activo. Si un partido anterior fue cancelado, puedes reutilizar esa reserva.
+              </p>
             )}
           </div>
 

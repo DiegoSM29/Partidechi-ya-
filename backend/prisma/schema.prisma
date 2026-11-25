@@ -19,6 +19,7 @@ model Usuario {
   rol               Rol            @default(JUGADOR)
   telefono          String?        @db.VarChar(30)
   estado            EstadoUsuario  @default(ACTIVO)
+  puntaje_confiabilidad Int         @default(100)
   fecha_registro    DateTime       @default(now())
   canchas           Cancha[]
   reservas          Reserva[]
@@ -26,6 +27,13 @@ model Usuario {
   partidosOrganizados Partido[]    @relation("PartidosOrganizados")
   participaciones   Participante[]
   notificaciones    Notificacion[]
+  movimientosConfiabilidad MovimientoConfiabilidad[]
+  movimientosConfiabilidadAdministrados MovimientoConfiabilidad[] @relation("AdministradoresConfiabilidad")
+  reportesInasistenciaEnviados ReporteInasistencia[] @relation("ReportesEnviados")
+  reportesInasistenciaRecibidos ReporteInasistencia[] @relation("ReportesRecibidos")
+  reportesInasistenciaResueltos ReporteInasistencia[] @relation("ReportesResueltos")
+  revisionesSolicitadas RevisionConfiabilidad[] @relation("RevisionesSolicitadas")
+  revisionesResueltas RevisionConfiabilidad[] @relation("RevisionesResueltas")
 
   @@map("usuarios")
 }
@@ -182,6 +190,8 @@ model Partido {
   organizador       Usuario       @relation("PartidosOrganizados", fields: [id_organizador], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
   reserva           Reserva?      @relation(fields: [id_reserva], references: [id_reserva], onDelete: Restrict, onUpdate: Cascade)
   participantes     Participante[]
+  reportesInasistencia ReporteInasistencia[]
+  movimientosConfiabilidad MovimientoConfiabilidad[]
 
   @@index([id_organizador])
   @@index([id_reserva])
@@ -218,4 +228,96 @@ enum EstadoParticipante {
   ABANDONADO @map("abandonado")
 
   @@map("estado_participante")
+}
+
+model ReporteInasistencia {
+  id_reporte       Int                    @id @default(autoincrement())
+  id_partido       Int
+  id_organizador   Int
+  id_jugador       Int
+  motivo           String                 @db.VarChar(500)
+  estado           EstadoReporteInasistencia @default(PENDIENTE)
+  fecha_reporte    DateTime               @default(now())
+  fecha_decision   DateTime?
+  decidido_por     Int?
+  partido          Partido                @relation(fields: [id_partido], references: [id_partido], onDelete: Restrict, onUpdate: Cascade)
+  organizador      Usuario                @relation("ReportesEnviados", fields: [id_organizador], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  jugador          Usuario                @relation("ReportesRecibidos", fields: [id_jugador], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  administrador    Usuario?               @relation("ReportesResueltos", fields: [decidido_por], references: [id_usuario], onDelete: SetNull, onUpdate: Cascade)
+  movimiento       MovimientoConfiabilidad?
+
+  @@unique([id_partido, id_jugador])
+  @@index([estado, fecha_reporte])
+  @@map("reportes_inasistencia")
+}
+
+model MovimientoConfiabilidad {
+  id_movimiento       Int                     @id @default(autoincrement())
+  id_usuario          Int
+  id_partido          Int?
+  id_reporte          Int?                    @unique
+  id_movimiento_origen Int?                   @unique
+  id_administrador    Int?
+  tipo                TipoMovimientoConfiabilidad
+  puntos_delta        Int
+  puntaje_anterior    Int
+  puntaje_resultante  Int
+  motivo              String                  @db.VarChar(500)
+  referencia_operacion String?                @db.VarChar(100)
+  fecha_creacion      DateTime                @default(now())
+  usuario             Usuario                 @relation(fields: [id_usuario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  administrador       Usuario?                @relation("AdministradoresConfiabilidad", fields: [id_administrador], references: [id_usuario], onDelete: SetNull, onUpdate: Cascade)
+  partido             Partido?                @relation(fields: [id_partido], references: [id_partido], onDelete: SetNull, onUpdate: Cascade)
+  reporte             ReporteInasistencia?    @relation(fields: [id_reporte], references: [id_reporte], onDelete: Restrict, onUpdate: Cascade)
+  origen              MovimientoConfiabilidad? @relation("ReversionConfiabilidad", fields: [id_movimiento_origen], references: [id_movimiento], onDelete: Restrict, onUpdate: Cascade)
+  reversion           MovimientoConfiabilidad? @relation("ReversionConfiabilidad")
+  revisiones          RevisionConfiabilidad[]
+
+  @@index([id_usuario, fecha_creacion])
+  @@map("movimientos_confiabilidad")
+}
+
+model RevisionConfiabilidad {
+  id_revision        Int                    @id @default(autoincrement())
+  id_movimiento      Int
+  id_solicitante     Int
+  motivo             String                 @db.VarChar(500)
+  estado             EstadoRevisionConfiabilidad @default(PENDIENTE)
+  decision           String?                @db.VarChar(500)
+  fecha_solicitud    DateTime               @default(now())
+  fecha_decision     DateTime?
+  decidido_por       Int?
+  movimiento         MovimientoConfiabilidad @relation(fields: [id_movimiento], references: [id_movimiento], onDelete: Restrict, onUpdate: Cascade)
+  solicitante        Usuario                @relation("RevisionesSolicitadas", fields: [id_solicitante], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
+  administrador      Usuario?               @relation("RevisionesResueltas", fields: [decidido_por], references: [id_usuario], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([id_movimiento, id_solicitante])
+  @@index([estado, fecha_solicitud])
+  @@map("revisiones_confiabilidad")
+}
+
+enum EstadoReporteInasistencia {
+  PENDIENTE @map("pendiente")
+  VALIDADO  @map("validado")
+  RECHAZADO @map("rechazado")
+
+  @@map("estado_reporte_inasistencia")
+}
+
+enum TipoMovimientoConfiabilidad {
+  INASISTENCIA @map("inasistencia")
+  CIERRE_CANCHA @map("cierre_cancha")
+  CANCELACION_PARTIDO @map("cancelacion_partido")
+  ABANDONO_PARTIDO @map("abandono_partido")
+  AJUSTE_ADMIN @map("ajuste_admin")
+
+  @@map("tipo_movimiento_confiabilidad")
+}
+
+enum EstadoRevisionConfiabilidad {
+  PENDIENTE @map("pendiente")
+  ACEPTADA  @map("aceptada")
+  RECHAZADA @map("rechazada")
+
+  @@map("estado_revision_confiabilidad")
 }

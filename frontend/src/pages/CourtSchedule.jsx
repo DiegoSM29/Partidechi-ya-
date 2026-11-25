@@ -233,7 +233,7 @@ const CourtSchedule = () => {
       setDisponibilidad(null);
       setRevision((valor) => valor + 1);
       setExito(
-        `Cancha cerrada para el ${data.data.fecha}. Se cancelaron ${data.data.reservas_canceladas} reservas activas; los jugadores deberán crear una nueva reserva si desean esos horarios.`
+        `Cancha cerrada para el ${data.data.fecha}. Se cancelaron ${data.data.reservas_canceladas} reservas y ${data.data.partidos_afectados} partidos. Se descontaron ${data.data.descuento_confiabilidad} puntos de confiabilidad.`
       );
     } catch (e) {
       setError(getApiError(e));
@@ -582,11 +582,15 @@ const CourtSchedule = () => {
                 <p className="mt-1 text-sm text-slate-700">
                   Se cancelarán {revisionCierre.reservas_afectadas} reservas pendientes o confirmadas. Los pagos asociados no se modifican.
                 </p>
+                <p className="mt-2 text-sm font-medium text-slate-700">
+                  Partidos organizados afectados: {revisionCierre.partidos_afectados}. Descuento estimado: {revisionCierre.descuento_confiabilidad} puntos (15 por partido, máximo 30 por cierre).
+                </p>
                 {revisionCierre.canchas[0]?.reservas?.length > 0 ? (
                   <ul className="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
                     {revisionCierre.canchas[0].reservas.map((reserva) => (
                       <li key={reserva.id_reserva}>
                         {reserva.hora_inicio}–{reserva.hora_fin} · {reserva.jugador}
+                        {reserva.partido ? ` · Partido: ${reserva.partido.nombre}` : ""}
                       </li>
                     ))}
                   </ul>

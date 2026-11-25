@@ -27,7 +27,7 @@ frontend/
     ├── components/           → ProtectedRoute, PublicOnlyRoute, Navbar, AuthLayout,
     │                           Alert, Spinner, LoadingScreen, FormFields, CourtMonthlyCalendar,
     │                           CourtLocationPicker, CourtLocationModal, CourtMapMarker
-    └── pages/                → Login, Register, Profile, OwnerCourts, CourtForm, NotFound
+    └── pages/                → Login, Register, Profile, Reliability, OwnerCourts, CourtForm, NotFound
 ```
 
 ## Guia de Instalacion y Ejecucion
@@ -60,7 +60,7 @@ npm run dev        → http://localhost:5173
 |---|---|---|
 | `/login` | Publica | Inicio de sesion (validacion cliente + backend) |
 | `/register` | Publica | Registro con selector de rol (Jugador/Propietario) |
-| `/profile` | Protegida | Perfil del usuario autenticado + cierre de sesion |
+| `/profile` | Protegida | Perfil del usuario autenticado, puntaje e historial de confiabilidad, restricciones, solicitud de revision y gestion administrativa |
 | `/courts` | Propietario | Consulta, visualizacion del mapa y administracion de canchas propias |
 | `/courts/new` | Propietario | Registro de cancha |
 | `/courts/:id/edit` | Propietario | Edicion de cancha propia |
@@ -92,7 +92,7 @@ El formulario registra nombre, ubicación, deporte y precio por hora. El deporte
 
 Los mapas y resultados de dirección usan OpenStreetMap y Nominatim, por lo que necesitan conexión a Internet. La geolocalización depende del permiso del navegador y normalmente requiere HTTPS; `localhost` se considera un origen seguro durante el desarrollo.
 
-Para que el guardado y la edición de coordenadas funcionen, aplica las migraciones pendientes desde `backend` con `npx prisma migrate dev` y genera el cliente con `npx prisma generate`.
+Para que el guardado y la edición de coordenadas funcionen, aplica las migraciones pendientes desde `backend` con `npx prisma migrate deploy` y genera el cliente con `npx prisma generate`.
 
 ## Horarios y Disponibilidad
 
@@ -112,7 +112,7 @@ No existe una sección global para cerrar canchas. Desde **Mis canchas**, el pro
 
 El calendario mensual está disponible tanto para propietarios como para jugadores. Cada día distingue entre disponibilidad, cierre, ausencia de horario semanal y ausencia de turnos libres. El calendario se genera con los horarios semanales, las reservas pendientes/confirmadas y los cierres de ese mes.
 
-El backend aplica el cierre y cancela las reservas activas de forma atómica; los jugadores reciben una notificación persistente consultable en `/notifications`. Los pagos asociados conservan su importe y estado. Un cierre solo afecta la cancha y fecha indicadas, no altera horarios semanales, e impide nuevos cierres duplicados y reservas para ese día.
+El backend aplica el cierre, cancela las reservas y partidos asociados de forma atómica, y notifica a los jugadores afectados en `/notifications`. Los pagos asociados conservan su importe y estado. Un cierre solo afecta la cancha y fecha indicadas, no altera horarios semanales, e impide nuevos cierres duplicados y reservas para ese día. Los jugadores no pierden puntos por la cancelación; al propietario se le descuentan 15 puntos por partido organizado, hasta 30 por operación.
 
 Al reabrir, se elimina solo el cierre de la cancha y fecha seleccionadas. La disponibilidad vuelve a generarse con los horarios semanales registrados, descontando las reservas activas. Las reservas canceladas por el cierre permanecen canceladas y los jugadores deben crear una nueva reserva. La API valida la propiedad de la cancha.
 
@@ -137,7 +137,15 @@ La vista `/reservations` permite al jugador consultar sus reservas próximas, pa
 
 La creacion de partidos (`/matches/create`) muestra un resumen de confirmacion antes de enviar la solicitud: reserva, cancha, fecha, hora, nombre, deporte, capacidad del partido y descripcion. La capacidad se establece por partido; el propietario ya no configura un limite de jugadores para la cancha. La pantalla advierte que, una vez creado, el partido no podra modificarse. El backend rechaza las actualizaciones del organizador; solo un administrador puede intervenir para moderar el partido.
 
-En el detalle del partido, los jugadores pueden unirse solo si el encuentro sigue publicado y tiene plazas libres. La capacidad disponible se actualiza al confirmar la inscripcion; no se duplican participantes, y el backend serializa las inscripciones para evitar exceder el cupo ante solicitudes simultaneas. Un participante que abandono puede volver a unirse si queda espacio.
+En el detalle del partido, los jugadores pueden unirse solo si el encuentro sigue publicado y tiene plazas libres. La capacidad disponible se actualiza al confirmar la inscripcion; no se duplican participantes, y el backend serializa las inscripciones para evitar exceder el cupo ante solicitudes simultaneas. Un participante que abandono puede volver a unirse si queda espacio; abandonar despues de confirmar descuenta 5 puntos y cada nuevo abandono tras volver a unirse vuelve a descontarlos. Al cancelar, el organizador recibe una advertencia: si hay al menos otro participante confirmado, pierde 10 puntos y estos reciben una notificacion; de lo contrario no hay descuento. La cancelacion conserva el partido y no afecta el puntaje de los jugadores. Su reserva confirmada puede reutilizarse para crear otro partido, manteniendo el encuentro cancelado en el historial.
+
+## Puntaje de Confiabilidad (HU-12)
+
+El perfil (`/profile`) incluye el puntaje de confiabilidad de 0 a 100, los permisos actuales y cada variación con motivo, fecha y puntaje resultante. Los usuarios pueden solicitar la revisión de un descuento desde su historial. Los administradores gestionan allí los reportes, apelaciones y correcciones; cada decisión se notifica y se conserva en el historial. El puntaje del organizador se muestra en las tarjetas y el detalle del partido, y el de cada participante aceptado en el detalle, para que otros jugadores puedan consultarlo.
+
+Los organizadores pueden reportar la inasistencia de un participante aceptado desde el detalle de un partido realizado. El descuento de 20 puntos no se aplica hasta la validación administrativa. Al revisar un cierre de cancha, el propietario ve cuántos partidos organizados se cancelarán y el descuento estimado (15 puntos por partido, máximo 30 por operación).
+
+Las restricciones por puntaje se aplican en el backend y se muestran en la página: desde 60 puntos se mantiene la actividad con advertencia; bajo 60 se restringen acciones de unirse a partidos o registrar canchas; bajo 40 se restringen además las reservas del jugador y la publicación de disponibilidad del propietario. Las reservas/partidos existentes no se cancelan y no hay recuperación automática por actividad.
 
 La asistencia se confirma al unirse y solo puede confirmarse hasta 30 minutos antes del inicio. Antes de unirse, el jugador ve un rango informativo del aporte por persona y puede abrir un mapa de la cancha; estos controles no aparecen como aviso de pago para otros roles ni para quienes ya confirmaron. No se cobra ni se abre PayPal desde la confirmacion de asistencia. El enlace "Organizar partido" conserva el identificador de la reserva y recibe la respuesta del endpoint de creacion con la estructura esperada.
 

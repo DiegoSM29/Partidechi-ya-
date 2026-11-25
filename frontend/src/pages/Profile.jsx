@@ -21,6 +21,7 @@ import {
 } from "../utils/roles";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
+import Reliability from "./Reliability";
 
 // Vista protegida: perfil del usuario autenticado (GET /users/me)
 const Profile = () => {
@@ -136,6 +137,8 @@ const Profile = () => {
           ))}
         </dl>
       </div>
+
+      <Reliability />
 
       <p className="mt-4 text-center text-xs text-slate-400">
         Sesión protegida con JWT · Los datos se validan contra el backend en cada carga

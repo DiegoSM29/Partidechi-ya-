@@ -4,6 +4,7 @@ const ApiError = require("../utils/ApiError");
 const partidoRepository = require("../repositories/partido.repository");
 const participanteRepository = require("../repositories/participante.repository");
 const reservaRepository = require("../repositories/reserva.repository");
+const confiabilidadService = require("./confiabilidad.service");
 
 const parseId = (value, entidad = "partido") => {
   const id = Number(value);
@@ -40,12 +41,6 @@ const create = async (usuario, input = {}) => {
     deporte = reserva.cancha.deporte;
   }
   if (!deporte) throw new ApiError(400, "El deporte es obligatorio");
-  // Verificar que no exista ya un partido para esta reserva
-  const existing = await prisma.partido.findUnique({ where: { id_reserva } });
-  if (existing) {
-    throw new ApiError(400, "Ya existe un partido asociado a esta reserva");
-  }
-
   const fecha_hora = new Date(`${reserva.fecha.toISOString().split("T")[0]}T${reserva.hora_inicio}:00`);
   // Si la fecha ya viene con hora, también podríamos usarla, pero usar reserva es más consistente
   if (fecha_hora.getTime() <= Date.now()) {
@@ -55,6 +50,20 @@ const create = async (usuario, input = {}) => {
   let partido;
   try {
     partido = await prisma.$transaction(async (tx) => {
+      const partidoAnterior = await tx.partido.findUnique({
+        where: { id_reserva },
+        select: { id_partido: true, estado: true },
+      });
+      if (partidoAnterior && partidoAnterior.estado !== "CANCELADO") {
+        throw new ApiError(400, "Ya existe un partido activo asociado a esta reserva");
+      }
+      if (partidoAnterior) {
+        await tx.partido.update({
+          where: { id_partido: partidoAnterior.id_partido },
+          data: { id_reserva: null },
+        });
+      }
+
       const created = await partidoRepository.create(
         {
           id_organizador: usuario.id_usuario,
@@ -81,7 +90,7 @@ const create = async (usuario, input = {}) => {
     });
   } catch (error) {
     if (error.code === "P2002") {
-      throw new ApiError(400, "Ya existe un partido asociado a esta reserva");
+      throw new ApiError(409, "Ya existe un partido asociado a esta reserva");
     }
     throw error;
   }
@@ -197,19 +206,48 @@ const update = async (usuario, rawId, input = {}) => {
 
 const remove = async (usuario, rawId) => {
   const id_partido = parseId(rawId);
-  const partido = await partidoRepository.findById(id_partido);
-  if (!partido) throw new ApiError(404, "Partido no encontrado");
-  if (partido.id_organizador !== usuario.id_usuario) {
-    throw new ApiError(403, "Solo el organizador puede eliminar el partido");
-  }
-  if (partido.estado !== "PUBLICADO" && partido.estado !== "PRIVADO") {
-    throw new ApiError(400, "Solo se pueden eliminar partidos activos");
-  }
-  if (partido.fecha_hora.getTime() - Date.now() < 24 * 60 * 60 * 1000) {
-    throw new ApiError(400, "El partido solo puede eliminarse con al menos 24 horas de anticipación");
-  }
+  return prisma.$transaction(async (tx) => {
+    await partidoRepository.lockForUpdate(id_partido, tx);
+    const partido = await partidoRepository.findById(id_partido, tx);
+    if (!partido) throw new ApiError(404, "Partido no encontrado");
+    if (partido.id_organizador !== usuario.id_usuario) {
+      throw new ApiError(403, "Solo el organizador puede cancelar el partido");
+    }
+    if (partido.estado !== "PUBLICADO" && partido.estado !== "PRIVADO") {
+      throw new ApiError(400, "Solo se pueden cancelar partidos activos");
+    }
+    if (partido.fecha_hora.getTime() - Date.now() < 24 * 60 * 60 * 1000) {
+      throw new ApiError(400, "El partido solo puede cancelarse con al menos 24 horas de anticipación");
+    }
 
-  await partidoRepository.remove(id_partido);
+    const participantes = partido.participantes.filter(
+      (participante) =>
+        participante.estado === "ACEPTADO" &&
+        participante.id_usuario !== usuario.id_usuario
+    );
+    await partidoRepository.update(id_partido, { estado: "CANCELADO" }, tx);
+
+    if (participantes.length > 0) {
+      await tx.notificacion.createMany({
+        data: participantes.map((participante) => ({
+          id_usuario: participante.id_usuario,
+          titulo: "Partido cancelado por el organizador",
+          mensaje: `El organizador canceló el partido "${partido.nombre}".`,
+        })),
+      });
+      await confiabilidadService.changeScore(tx, {
+        id_usuario: usuario.id_usuario,
+        delta: -10,
+        tipo: "CANCELACION_PARTIDO",
+        id_partido,
+        motivo: `Cancelación del partido "${partido.nombre}" con participantes confirmados`,
+        titulo: "Descuento por cancelar un partido",
+        detalle: ({ delta, puntaje }) =>
+          `Cancelaste el partido "${partido.nombre}" cuando ya tenía participantes confirmados. Se descontaron ${delta} puntos; tu nuevo puntaje es ${puntaje}.`,
+      });
+    }
+    return { id_partido, estado: "CANCELADO", participantes_notificados: participantes.length };
+  });
 };
 
 const join = async (usuario, rawId) => {
@@ -217,9 +255,9 @@ const join = async (usuario, rawId) => {
   if (usuario.rol !== "JUGADOR") {
     throw new ApiError(403, "Solo los jugadores pueden unirse a un partido");
   }
-
   await prisma.$transaction(async (tx) => {
     await partidoRepository.lockForUpdate(id_partido, tx);
+    await confiabilidadService.assertCanJoin(usuario.id_usuario, tx);
     const partido = await partidoRepository.findById(id_partido, tx);
     if (!partido) throw new ApiError(404, "Partido no encontrado");
     if (partido.estado !== "PUBLICADO" && partido.estado !== "PRIVADO") {
@@ -269,17 +307,43 @@ const join = async (usuario, rawId) => {
 
 const leave = async (usuario, rawId) => {
   const id_partido = parseId(rawId);
-  const partido = await partidoRepository.findById(id_partido);
-  if (!partido) throw new ApiError(404, "Partido no encontrado");
-  if (partido.id_organizador === usuario.id_usuario) {
-    throw new ApiError(400, "El organizador no puede abandonar el partido");
-  }
-  const existing = await participanteRepository.findByPartidoAndUsuario(id_partido, usuario.id_usuario);
-  if (!existing || existing.estado !== "ACEPTADO") {
-    throw new ApiError(400, "No te encuentras unido a este partido");
-  }
-  await participanteRepository.update(existing.id_participante, { estado: "ABANDONADO" });
-  return { message: "Has abandonado el partido correctamente" };
+  return prisma.$transaction(async (tx) => {
+    await partidoRepository.lockForUpdate(id_partido, tx);
+    const partido = await partidoRepository.findById(id_partido, tx);
+    if (!partido) throw new ApiError(404, "Partido no encontrado");
+    if (partido.id_organizador === usuario.id_usuario) {
+      throw new ApiError(400, "El organizador no puede abandonar el partido");
+    }
+    if (partido.estado !== "PUBLICADO" && partido.estado !== "PRIVADO") {
+      throw new ApiError(400, "No puedes abandonar un partido cancelado o finalizado");
+    }
+    const existing = await participanteRepository.findByPartidoAndUsuario(
+      id_partido,
+      usuario.id_usuario,
+      tx
+    );
+    if (!existing || existing.estado !== "ACEPTADO") {
+      throw new ApiError(400, "No te encuentras unido a este partido");
+    }
+    await participanteRepository.update(
+      existing.id_participante,
+      { estado: "ABANDONADO" },
+      tx
+    );
+    const movimiento = await confiabilidadService.changeScore(tx, {
+      id_usuario: usuario.id_usuario,
+      delta: -5,
+      tipo: "ABANDONO_PARTIDO",
+      id_partido,
+      motivo: `Abandono del partido "${partido.nombre}" después de confirmar asistencia`,
+      titulo: "Descuento por abandonar un partido",
+      detalle: ({ delta, puntaje }) =>
+        `Abandonaste el partido "${partido.nombre}" después de confirmar asistencia. Se descontaron ${delta} puntos; tu nuevo puntaje es ${puntaje}.`,
+    });
+    return {
+      message: `Has abandonado el partido correctamente. Se descontaron ${Math.abs(movimiento.puntos_delta)} puntos de confiabilidad.`,
+    };
+  });
 };
 
 const getParticipants = async (rawId) => {
@@ -289,4 +353,9 @@ const getParticipants = async (rawId) => {
   return participanteRepository.findByPartido(id_partido);
 };
 
-module.exports = { create, list, getById, update, remove, join, leave, getParticipants };
+const reportNoShow = (usuario, rawPartidoId, input) =>
+  confiabilidadService.createNoShowReport(usuario, rawPartidoId, input);
+
+module.exports = {
+  create, list, getById, update, remove, join, leave, getParticipants, reportNoShow,
+};

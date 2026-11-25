@@ -55,6 +55,9 @@ const findAffectedReservations = (id_canchas, fecha, client = prisma) =>
       estado: true,
       cancha: { select: { nombre: true } },
       usuario: { select: { nombre: true, apellido: true } },
+      partido: {
+        select: { id_partido: true, nombre: true, estado: true },
+      },
     },
   });
 
@@ -70,6 +73,28 @@ const cancelActiveReservations = (id_canchas, fecha, client = prisma) =>
     },
     data: { estado: "CANCELADA" },
   });
+
+const cancelAffectedMatches = (id_reservas, client = prisma) =>
+  id_reservas.length === 0
+    ? Promise.resolve({ count: 0 })
+    : client.partido.updateMany({
+        where: {
+          id_reserva: { in: id_reservas },
+          estado: { in: ["PUBLICADO", "PRIVADO"] },
+        },
+        data: { estado: "CANCELADO" },
+      });
+
+const findAcceptedParticipantsForMatches = (id_partidos, client = prisma) =>
+  id_partidos.length === 0
+    ? Promise.resolve([])
+    : client.participante.findMany({
+        where: { id_partido: { in: id_partidos }, estado: "ACEPTADO" },
+        select: {
+          id_usuario: true,
+          partido: { select: { nombre: true } },
+        },
+      });
 
 const createNotifications = (data, client = prisma) =>
   data.length > 0 ? client.notificacion.createMany({ data }) : Promise.resolve({ count: 0 });
@@ -92,6 +117,8 @@ module.exports = {
   findAffectedReservations,
   createClosures,
   cancelActiveReservations,
+  cancelAffectedMatches,
+  findAcceptedParticipantsForMatches,
   createNotifications,
   isClosed,
   deleteClosure,

@@ -1,7 +1,9 @@
 const ApiError = require("../utils/ApiError");
+const prisma = require("../config/prisma");
 const canchaRepository = require("../repositories/cancha.repository");
 const { isNonEmptyString, cleanString } = require("../utils/validators");
 const cochabambaDepartment = require("../../../shared/cochabamba-department.json");
+const confiabilidadService = require("./confiabilidad.service");
 
 const TEXT_FIELDS = {
   nombre: 100,
@@ -144,8 +146,12 @@ const listAll = (filters = {}) => canchaRepository.findAll(filters);
 const listMine = (id_propietario) => canchaRepository.findByOwner(id_propietario);
 
 const create = async (id_propietario, input) => {
+  await confiabilidadService.assertCanRegisterCourt(id_propietario);
   const data = await validateInput(input, [...Object.keys(TEXT_FIELDS), "ubicacion", "precio_hora"]);
-  return canchaRepository.create({ ...data, id_propietario });
+  return prisma.$transaction(async (tx) => {
+    await confiabilidadService.assertCanRegisterCourt(id_propietario, tx);
+    return canchaRepository.create({ ...data, id_propietario }, tx);
+  });
 };
 
 const updateMine = async (id_propietario, rawId, input) => {

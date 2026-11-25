@@ -51,7 +51,7 @@ const findByOwner = (id_propietario) =>
 const findById = (id_cancha) =>
   prisma.cancha.findUnique({ where: { id_cancha }, include: { horarios: true } });
 
-const create = (data) => prisma.cancha.create({ data });
+const create = (data, client = prisma) => client.cancha.create({ data });
 
 const findByOwnerAndId = (id_propietario, id_cancha) =>
   prisma.cancha.findFirst({ where: { id_propietario, id_cancha } });
