@@ -30,6 +30,7 @@ const Navbar = () => {
 
   useEffect(() => {
     let activo = true;
+    let cargando = false;
     if (!isAuthenticated) {
       setNotificacionesSinLeer(0);
       return () => {
@@ -38,24 +39,43 @@ const Navbar = () => {
     }
 
     const cargarContador = async () => {
+      if (!activo || cargando || document.visibilityState === "hidden") return;
+      cargando = true;
       try {
-        const { data } = await api.get("/notifications");
+        const { data } = await api.get("/notifications/unread-count");
         if (activo) {
-          const notificaciones = data?.data?.notificaciones || [];
-          setNotificacionesSinLeer(notificaciones.filter((item) => !item.leida).length);
+          const count = data?.data?.count;
+          if (!Number.isInteger(count) || count < 0) {
+            throw new Error("El API devolvió un contador de notificaciones no válido");
+          }
+          setNotificacionesSinLeer(count);
         }
       } catch (error) {
         console.error("No se pudo actualizar el contador de notificaciones", error);
+      } finally {
+        cargando = false;
       }
     };
 
+    const alVolver = () => {
+      if (document.visibilityState === "visible") cargarContador();
+    };
+
     cargarContador();
+    const intervalId = window.setInterval(cargarContador, 15000);
     window.addEventListener("notifications:updated", cargarContador);
+    window.addEventListener("focus", cargarContador);
+    window.addEventListener("online", cargarContador);
+    document.addEventListener("visibilitychange", alVolver);
     return () => {
       activo = false;
+      window.clearInterval(intervalId);
       window.removeEventListener("notifications:updated", cargarContador);
+      window.removeEventListener("focus", cargarContador);
+      window.removeEventListener("online", cargarContador);
+      document.removeEventListener("visibilitychange", alVolver);
     };
-  }, [isAuthenticated, pathname === "/notifications"]);
+  }, [isAuthenticated]);
 
   const handleLogout = async () => {
     await logout();

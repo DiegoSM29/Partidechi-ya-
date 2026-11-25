@@ -6,6 +6,9 @@ const participanteRepository = require("../repositories/participante.repository"
 const reservaRepository = require("../repositories/reserva.repository");
 const confiabilidadService = require("./confiabilidad.service");
 
+const PUNTOS_ABANDONO_PARTIDO = 5;
+const PUNTOS_CANCELACION_PARTIDO = 10;
+
 const parseId = (value, entidad = "partido") => {
   const id = Number(value);
   if (!Number.isInteger(id) || id < 1) {
@@ -41,6 +44,12 @@ const create = async (usuario, input = {}) => {
     deporte = reserva.cancha.deporte;
   }
   if (!deporte) throw new ApiError(400, "El deporte es obligatorio");
+  // Verificar que no exista ya un partido para esta reserva
+  const existing = await prisma.partido.findUnique({ where: { id_reserva } });
+  if (existing) {
+    throw new ApiError(400, "Ya existe un partido asociado a esta reserva");
+  }
+
   const fecha_hora = new Date(`${reserva.fecha.toISOString().split("T")[0]}T${reserva.hora_inicio}:00`);
   // Si la fecha ya viene con hora, también podríamos usarla, pero usar reserva es más consistente
   if (fecha_hora.getTime() <= Date.now()) {
@@ -50,20 +59,6 @@ const create = async (usuario, input = {}) => {
   let partido;
   try {
     partido = await prisma.$transaction(async (tx) => {
-      const partidoAnterior = await tx.partido.findUnique({
-        where: { id_reserva },
-        select: { id_partido: true, estado: true },
-      });
-      if (partidoAnterior && partidoAnterior.estado !== "CANCELADO") {
-        throw new ApiError(400, "Ya existe un partido activo asociado a esta reserva");
-      }
-      if (partidoAnterior) {
-        await tx.partido.update({
-          where: { id_partido: partidoAnterior.id_partido },
-          data: { id_reserva: null },
-        });
-      }
-
       const created = await partidoRepository.create(
         {
           id_organizador: usuario.id_usuario,
@@ -90,7 +85,7 @@ const create = async (usuario, input = {}) => {
     });
   } catch (error) {
     if (error.code === "P2002") {
-      throw new ApiError(409, "Ya existe un partido asociado a esta reserva");
+      throw new ApiError(400, "Ya existe un partido asociado a esta reserva");
     }
     throw error;
   }
@@ -237,7 +232,7 @@ const remove = async (usuario, rawId) => {
       });
       await confiabilidadService.changeScore(tx, {
         id_usuario: usuario.id_usuario,
-        delta: -10,
+        delta: -PUNTOS_CANCELACION_PARTIDO,
         tipo: "CANCELACION_PARTIDO",
         id_partido,
         motivo: `Cancelación del partido "${partido.nombre}" con participantes confirmados`,
@@ -246,7 +241,12 @@ const remove = async (usuario, rawId) => {
           `Cancelaste el partido "${partido.nombre}" cuando ya tenía participantes confirmados. Se descontaron ${delta} puntos; tu nuevo puntaje es ${puntaje}.`,
       });
     }
-    return { id_partido, estado: "CANCELADO", participantes_notificados: participantes.length };
+
+    return {
+      id_partido,
+      estado: "CANCELADO",
+      participantes_notificados: participantes.length,
+    };
   });
 };
 
@@ -255,6 +255,8 @@ const join = async (usuario, rawId) => {
   if (usuario.rol !== "JUGADOR") {
     throw new ApiError(403, "Solo los jugadores pueden unirse a un partido");
   }
+  await confiabilidadService.assertCanJoin(usuario.id_usuario);
+
   await prisma.$transaction(async (tx) => {
     await partidoRepository.lockForUpdate(id_partido, tx);
     await confiabilidadService.assertCanJoin(usuario.id_usuario, tx);
@@ -332,7 +334,7 @@ const leave = async (usuario, rawId) => {
     );
     const movimiento = await confiabilidadService.changeScore(tx, {
       id_usuario: usuario.id_usuario,
-      delta: -5,
+      delta: -PUNTOS_ABANDONO_PARTIDO,
       tipo: "ABANDONO_PARTIDO",
       id_partido,
       motivo: `Abandono del partido "${partido.nombre}" después de confirmar asistencia`,
