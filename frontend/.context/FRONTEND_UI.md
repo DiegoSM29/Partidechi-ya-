@@ -13,3 +13,5 @@
 * **Retroalimentacion Visual**: 
   * Indicadores de carga (*spinners*) en botones durante peticiones asíncronas para evitar dobles envíos.
   * Alertas flotantes o mensajes descriptivos sincronizados con los errores devueltos por el backend (`{success: false, error: "..."}`).
+* **Cierre de Canchas**: La vista del propietario permite seleccionar canchas propias y una fecha no pasada, revisar las reservas pendientes/confirmadas afectadas y confirmar antes de aplicar el cierre.
+* **Notificaciones**: Los jugadores pueden consultar las notificaciones persistentes de cancelacion y marcar cada una como leida.

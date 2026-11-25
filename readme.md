@@ -51,10 +51,12 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 * Usuarios: /api/v1/users/me
 * Canchas: GET /api/v1/courts, GET /api/v1/courts/mine, POST /api/v1/courts, PATCH y DELETE /api/v1/courts/:id
 * Horarios: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability
+* Cierres: POST /api/v1/courts/closures/preview, POST /api/v1/courts/closures
 * Reservas: POST /api/v1/reservations, GET /api/v1/reservations, GET /api/v1/reservations/:id, POST /api/v1/reservations/:id/cancel, POST /api/v1/reservations/:id/confirm
 * Pagos: GET /api/v1/reservations/:id/payments/amount, POST /api/v1/reservations/:id/payments/paypal/simulate, POST /api/v1/reservations/:id/payments/paypal/capture, POST /api/v1/reservations/:id/payments, GET /api/v1/reservations/:id/payments, POST /api/v1/payments/:id/verify
 * Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, DELETE /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants
 * Administracion: /api/v1/admin/users, /api/v1/admin/statistics
+* Notificaciones: GET /api/v1/notifications, PATCH /api/v1/notifications/:id/read
 
 ## Gestion de Canchas
 
@@ -262,3 +264,11 @@ El jugador puede consultar su historial de reservas independientemente de la nav
 - `npm run build` en el frontend (compilación correcta).
 - Pruebas manuales contra la API local: listado y filtros de reservas del propietario, aprobación de un pago con confirmación automática de la reserva, captura simulada de PayPal en sandbox y rechazo de verificación por parte de un jugador.
 - No se requirieron migraciones nuevas porque se reutilizan los estados y campos existentes de `reservas` y `pagos`.
+
+## Cierre Puntual de Canchas (Propietario)
+
+- El propietario puede seleccionar una o varias canchas propias o elegir cerrar todas para una fecha actual o futura.
+- Antes de aplicar el cierre, se presenta un resumen de las canchas y reservas pendientes/confirmadas afectadas, y se solicita confirmación explícita.
+- El backend crea los cierres, cancela las reservas y registra una notificación para cada jugador dentro de una transacción. Si la operación falla, no se aplica ningún cambio parcial.
+- La disponibilidad no muestra turnos reservables y las nuevas reservas se rechazan para una cancha cerrada en esa fecha. El cierre no modifica el horario semanal ni el importe/estado de pagos.
+- Un índice único por cancha y fecha evita cierres duplicados. Los jugadores consultan y marcan como leídas sus notificaciones en `/notifications`.

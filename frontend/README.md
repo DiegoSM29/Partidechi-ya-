@@ -65,11 +65,13 @@ npm run dev        → http://localhost:5173
 | `/courts/new` | Propietario | Registro de cancha |
 | `/courts/:id/edit` | Propietario | Edicion de cancha propia |
 | `/courts/:id/schedules` | Propietario | Configuracion de horarios registrados y consulta de disponibilidad |
+| `/courts/closures` | Propietario | Cierre puntual de una o varias canchas propias para una fecha |
 | `/reservations/new` | Protegida | Solicitud de reserva desde un horario disponible |
 | `/reservations/:id/pay` | Protegida | Pago PayPal/manual y confirmacion automatica de la reserva |
 | `/reservations` | Jugador | Consulta de reservas proximas, pasadas y canceladas |
 | `/reservations/:id` | Jugador | Detalle persistente de una reserva propia |
 | `/reservations/owner` | Propietario | Consulta de reservas propias, estados de pago y verificacion de comprobantes |
+| `/notifications` | Protegida | Consulta de notificaciones propias y marcado como leídas |
 | `/matches`, `/matches/create`, `/matches/:id` | Protegida | Partidos amistosos asociados a reservas confirmadas |
 | `/` | — | Redirige a `/login` o `/profile` segun sesion |
 | `*` | — | Pagina 404 |
@@ -101,6 +103,12 @@ Desde **Mis canchas**, el botón de calendario abre `/courts/:id/schedules`. La 
 * Consultar la disponibilidad resultante para una fecha, mostrando turnos disponibles y reservados.
 
 La API rechaza horarios solapados, reservas fuera de los intervalos registrados y reservas que choquen con otra reserva activa.
+
+## Cierre Puntual de Canchas
+
+Desde **Cerrar canchas**, el propietario puede seleccionar una o varias canchas propias (o todas) y una fecha actual o futura. Antes de aplicar el cierre, la vista muestra las canchas y sus reservas pendientes o confirmadas afectadas para que el propietario confirme la operación.
+
+El backend aplica el cierre y cancela las reservas activas de forma atómica; los jugadores reciben una notificación persistente consultable en `/notifications`. Los pagos asociados conservan su importe y estado. Un cierre solo se aplica a la fecha indicada, no altera los horarios semanales, impide nuevos cierres duplicados y hace que disponibilidad y nuevas reservas rechacen esa fecha.
 
 ## Reservas y Pagos del Propietario
 

@@ -25,6 +25,7 @@ model Usuario {
   pagosVerificados  Pago[]         @relation("PagosVerificados")
   partidosOrganizados Partido[]    @relation("PartidosOrganizados")
   participaciones   Participante[]
+  notificaciones    Notificacion[]
 
   @@map("usuarios")
 }
@@ -42,9 +43,37 @@ model Cancha {
   propietario       Usuario   @relation(fields: [id_propietario], references: [id_usuario], onDelete: Restrict, onUpdate: Cascade)
   horarios          Horario[]
   reservas          Reserva[]
+  cierres           CierreCancha[]
 
   @@index([id_propietario])
   @@map("canchas")
+}
+
+/// Cierres puntuales de una cancha para una fecha, sin alterar sus horarios semanales.
+model CierreCancha {
+  id_cierre  Int      @id @default(autoincrement())
+  id_cancha  Int
+  fecha      DateTime @db.Date
+  creado_en  DateTime @default(now())
+  cancha     Cancha   @relation(fields: [id_cancha], references: [id_cancha], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([id_cancha, fecha])
+  @@index([fecha])
+  @@map("cierres_canchas")
+}
+
+/// Avisos persistentes dirigidos a usuarios autenticados.
+model Notificacion {
+  id_notificacion Int      @id @default(autoincrement())
+  id_usuario      Int
+  titulo          String   @db.VarChar(150)
+  mensaje         String   @db.VarChar(500)
+  leida           Boolean  @default(false)
+  fecha_creacion  DateTime @default(now())
+  usuario         Usuario  @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([id_usuario, leida, fecha_creacion])
+  @@map("notificaciones")
 }
 
 /// Franjas horarias semanales registradas como disponibles para una cancha.

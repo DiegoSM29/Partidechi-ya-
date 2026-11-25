@@ -1,7 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { CalendarCheck, LogOut, MapPinned, Search, Trophy, UserRound, UsersRound } from "lucide-react";
+import { Bell, CalendarCheck, CalendarX, LogOut, MapPinned, Search, Trophy, UserRound, UsersRound } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getHomeForRole } from "../utils/roles";
+import api from "../api/client";
 
 const NavItem = ({ to, label, icon: Icon, active }) => (
   <Link
@@ -24,6 +26,36 @@ const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [notificacionesSinLeer, setNotificacionesSinLeer] = useState(0);
+
+  useEffect(() => {
+    let activo = true;
+    if (!isAuthenticated) {
+      setNotificacionesSinLeer(0);
+      return () => {
+        activo = false;
+      };
+    }
+
+    const cargarContador = async () => {
+      try {
+        const { data } = await api.get("/notifications");
+        if (activo) {
+          const notificaciones = data?.data?.notificaciones || [];
+          setNotificacionesSinLeer(notificaciones.filter((item) => !item.leida).length);
+        }
+      } catch (error) {
+        console.error("No se pudo actualizar el contador de notificaciones", error);
+      }
+    };
+
+    cargarContador();
+    window.addEventListener("notifications:updated", cargarContador);
+    return () => {
+      activo = false;
+      window.removeEventListener("notifications:updated", cargarContador);
+    };
+  }, [isAuthenticated, pathname === "/notifications"]);
 
   const handleLogout = async () => {
     await logout();
@@ -47,6 +79,7 @@ const Navbar = () => {
     pathname === "/reservations/owner" ||
     pathname === "/owner/reservations";
   const enMisReservas = pathname === "/reservations" || /^\/reservations\/\d+$/.test(pathname);
+  const enCerrarCanchas = pathname === "/courts/closures";
   const enPerfil = pathname === "/profile";
 
   return (
@@ -101,6 +134,12 @@ const Navbar = () => {
                     active={enMisCanchas}
                   />
                   <NavItem
+                    to="/courts/closures"
+                    label="Cerrar canchas"
+                    icon={CalendarX}
+                    active={enCerrarCanchas}
+                  />
+                  <NavItem
                     to="/reservations/owner"
                     label="Reservas"
                     icon={CalendarCheck}
@@ -108,6 +147,24 @@ const Navbar = () => {
                   />
                 </>
               ) : null}
+              <Link
+                to="/notifications"
+                aria-label={`Notificaciones${notificacionesSinLeer > 0 ? `, ${notificacionesSinLeer} sin leer` : ""}`}
+                aria-current={pathname === "/notifications" ? "page" : undefined}
+                title="Notificaciones"
+                className={`relative rounded-lg p-2.5 transition ${
+                  pathname === "/notifications"
+                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                <Bell size={18} />
+                {notificacionesSinLeer > 0 ? (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                    {notificacionesSinLeer > 99 ? "99+" : notificacionesSinLeer}
+                  </span>
+                ) : null}
+              </Link>
               <Link
                 to={getHomeForRole(user.rol)}
                 aria-current={enPerfil ? "page" : undefined}

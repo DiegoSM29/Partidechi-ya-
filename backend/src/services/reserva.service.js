@@ -4,6 +4,7 @@ const ApiError = require("../utils/ApiError");
 const canchaRepository = require("../repositories/cancha.repository");
 const horarioRepository = require("../repositories/horario.repository");
 const reservaRepository = require("../repositories/reserva.repository");
+const cierreRepository = require("../repositories/cierre.repository");
 const {
   normalizeTime,
   timeToMinutes,
@@ -105,6 +106,10 @@ const assertCourtIsBookable = async (
   { id_cancha, fechaInfo, hora_inicio, hora_fin },
   tx
 ) => {
+  const cierre = await cierreRepository.isClosed(id_cancha, fechaInfo.fecha, tx);
+  if (cierre) {
+    throw new ApiError(400, "La cancha esta cerrada para la fecha seleccionada");
+  }
   const horarios = await horarioRepository.findByCourtIdAndDay(
     id_cancha,
     fechaInfo.dia_semana,

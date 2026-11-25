@@ -4,6 +4,7 @@ const ApiError = require("../utils/ApiError");
 const canchaRepository = require("../repositories/cancha.repository");
 const horarioRepository = require("../repositories/horario.repository");
 const reservaRepository = require("../repositories/reserva.repository");
+const cierreRepository = require("../repositories/cierre.repository");
 const {
   DIAS_SEMANA,
   normalizeTime,
@@ -246,9 +247,10 @@ const getAvailability = async (rawId, query = {}) => {
   }
   const duracion = parseDuration(query.duracion ?? query.duration);
 
-  const [horarios, reservas] = await Promise.all([
+  const [horarios, reservas, cierre] = await Promise.all([
     horarioRepository.findByCourtIdAndDay(cancha.id_cancha, fechaInfo.dia_semana),
     reservaRepository.findByCourtAndDate(cancha.id_cancha, fechaInfo.fecha),
+    cierreRepository.isClosed(cancha.id_cancha, fechaInfo.fecha),
   ]);
 
   const slots = [];
@@ -261,11 +263,12 @@ const getAvailability = async (rawId, query = {}) => {
       const reservado = reservas.some((reserva) =>
         intervalsOverlap(hora_inicio, hora_fin, reserva.hora_inicio, reserva.hora_fin)
       );
+      const cerrado = Boolean(cierre);
       slots.push({
         hora_inicio,
         hora_fin,
-        disponible: !reservado,
-        motivo: reservado ? "reservado" : null,
+        disponible: !cerrado && !reservado,
+        motivo: cerrado ? "cancha_cerrada" : reservado ? "reservado" : null,
       });
     }
   }
@@ -281,6 +284,7 @@ const getAvailability = async (rawId, query = {}) => {
     horarios,
     atencion: horarios,
     reservas,
+    cerrada: Boolean(cierre),
     slots,
     disponibles,
     disponible: disponibles.length > 0,

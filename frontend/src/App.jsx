@@ -18,6 +18,8 @@ import ReservationPay from "./pages/ReservationPay";
 import MyReservations from "./pages/MyReservations";
 import ReservationDetail from "./pages/ReservationDetail";
 import OwnerReservations from "./pages/OwnerReservations";
+import CourtClosures from "./pages/CourtClosures";
+import Notifications from "./pages/Notifications";
 import Matches from "./pages/Matches";
 import MatchDetail from "./pages/MatchDetail";
 import CreateMatch from "./pages/CreateMatch";
@@ -71,10 +73,26 @@ const App = () => (
           }
         />
         <Route
+          path="/courts/closures"
+          element={
+            <ProtectedRoute rol="PROPIETARIO">
+              <CourtClosures />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/courts/new"
           element={
             <ProtectedRoute rol="PROPIETARIO">
               <CourtForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
             </ProtectedRoute>
           }
         />
