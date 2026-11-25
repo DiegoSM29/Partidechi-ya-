@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Eye, EyeOff, Trophy, UserPlus } from "lucide-react";
+import { Building2, Check, Eye, EyeOff, Trophy, UserPlus } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { validarRegistro } from "../utils/validators";
 import { getHomeForRole } from "../utils/roles";
@@ -89,48 +89,58 @@ const Register = () => {
       pieEnlace="Inicia sesion"
       pieRuta="/login"
     >
-      <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <form onSubmit={handleSubmit} noValidate>
         <Alert tipo="error">{errorServidor}</Alert>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Campo etiqueta="Nombre" error={errores.nombre}>
+          <Campo id="register-first-name" etiqueta="Nombre" error={errores.nombre}>
             <input
+              id="register-first-name"
               type="text"
               name="nombre"
               value={form.nombre}
               onChange={handleChange}
               placeholder="Tu nombre"
               autoComplete="given-name"
+              aria-invalid={Boolean(errores.nombre)}
+              aria-describedby={errores.nombre ? "register-first-name-error" : undefined}
               className={inputCls(errores.nombre)}
             />
           </Campo>
-          <Campo etiqueta="Apellido" error={errores.apellido}>
+          <Campo id="register-last-name" etiqueta="Apellido" error={errores.apellido}>
             <input
+              id="register-last-name"
               type="text"
               name="apellido"
               value={form.apellido}
               onChange={handleChange}
               placeholder="Tu apellido"
               autoComplete="family-name"
+              aria-invalid={Boolean(errores.apellido)}
+              aria-describedby={errores.apellido ? "register-last-name-error" : undefined}
               className={inputCls(errores.apellido)}
             />
           </Campo>
         </div>
 
-        <Campo etiqueta="Correo electronico" error={errores.correo}>
+        <Campo id="register-email" etiqueta="Correo electrónico" error={errores.correo}>
           <input
+            id="register-email"
             type="email"
             name="correo"
             value={form.correo}
             onChange={handleChange}
             placeholder="tu@correo.com"
             autoComplete="email"
+            aria-invalid={Boolean(errores.correo)}
+            aria-describedby={errores.correo ? "register-email-error" : undefined}
             className={inputCls(errores.correo)}
           />
         </Campo>
 
-        <Campo etiqueta="Telefono (opcional)">
+        <Campo id="register-phone" etiqueta="Teléfono (opcional)">
           <input
+            id="register-phone"
             type="tel"
             name="telefono"
             value={form.telefono}
@@ -141,15 +151,18 @@ const Register = () => {
           />
         </Campo>
 
-        <Campo etiqueta="contraseña" error={errores.password}>
+        <Campo id="register-password" etiqueta="Contraseña" error={errores.password}>
           <div className="relative">
             <input
+              id="register-password"
               type={mostrarPassword ? "text" : "password"}
               name="password"
               value={form.password}
               onChange={handleChange}
               placeholder="Minimo 8 caracteres"
               autoComplete="new-password"
+              aria-invalid={Boolean(errores.password)}
+              aria-describedby={errores.password ? "register-password-error" : undefined}
               className={`${inputCls(errores.password)} pr-11`}
             />
             <button
@@ -163,22 +176,25 @@ const Register = () => {
           </div>
         </Campo>
 
-        <Campo etiqueta="Confirmar contraseña" error={errores.passwordConfirmacion}>
+        <Campo id="register-password-confirmation" etiqueta="Confirmar contraseña" error={errores.passwordConfirmacion}>
           <input
+            id="register-password-confirmation"
             type="password"
             name="passwordConfirmacion"
             value={form.passwordConfirmacion}
             onChange={handleChange}
             placeholder="Repite tu contraseña"
             autoComplete="new-password"
+            aria-invalid={Boolean(errores.passwordConfirmacion)}
+            aria-describedby={errores.passwordConfirmacion ? "register-password-confirmation-error" : undefined}
             className={inputCls(errores.passwordConfirmacion)}
           />
         </Campo>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            Tipo de cuenta (opcional)
-          </label>
+        <fieldset className="auth-role-group">
+          <legend className="mb-2 block text-sm font-semibold text-slate-700">
+            ¿Cómo usarás Partidechi?
+          </legend>
           <div className="grid grid-cols-2 gap-3">
             {OPCIONES_ROL.map(({ valor, titulo, descripcion, Icono }) => {
               const activo = form.rol === valor;
@@ -187,26 +203,25 @@ const Register = () => {
                   key={valor}
                   type="button"
                   onClick={() => seleccionarRol(valor)}
-                  className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${
-                    activo
-                      ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/40"
-                      : "border-slate-200 bg-white hover:border-slate-300"
-                  }`}
+                  className={`auth-role-option ${activo ? "is-selected" : ""}`}
                   aria-pressed={activo}
                 >
-                  <Icono size={18} className={activo ? "text-emerald-600" : "text-slate-400"} />
-                  <span className="text-sm font-semibold text-slate-900">{titulo}</span>
-                  <span className="text-xs text-slate-500">{descripcion}</span>
+                  <span className={`auth-role-icon ${activo ? "is-selected" : ""}`}>
+                    <Icono size={18} />
+                  </span>
+                  <span className="auth-role-title">{titulo}</span>
+                  <span className="auth-role-description">{descripcion}</span>
+                  {activo ? <span className="auth-role-check"><Check size={12} /></span> : null}
                 </button>
               );
             })}
           </div>
-        </div>
+        </fieldset>
 
         <button
           type="submit"
           disabled={enviando}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="auth-submit flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
         >
           {enviando ? (
             <Spinner className="h-4 w-4 text-white" />

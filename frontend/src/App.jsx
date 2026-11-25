@@ -34,9 +34,9 @@ const HomeRedirect = () => {
 };
 
 const App = () => (
-  <div className="flex min-h-screen flex-col">
+  <div className="app-shell flex min-h-screen flex-col">
     <Navbar />
-    <main className="flex-1">
+    <main className="app-main flex-1">
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
         <Route
