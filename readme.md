@@ -1,6 +1,6 @@
-# Backend - Partidechi ya!
+Partidechi ya!
 
-Backend oficial de "Partidechi ya!", una aplicación web desarrollada para centralizar la búsqueda de canchas deportivas, la consulta de disponibilidad horaria, la gestión de reservas, pagos y la organización de partidos amistosos.
+Partidechi ya! es una aplicación web desarrollada para centralizar la búsqueda de canchas deportivas, la consulta de disponibilidad horaria, la gestión de reservas, pagos y la organización de partidos amistosos.
 
 ## Stack Tecnologico
 * Entorno: Node.js
