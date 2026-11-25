@@ -46,6 +46,30 @@ npx prisma generate
 npm run dev
 El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 
+## Conectar PostgreSQL a Supabase
+
+El backend ya se conecta a PostgreSQL con Prisma, por lo que no necesita el SDK de Supabase para guardar datos. Este proyecto mantiene su autenticación actual con JWT y la tabla `usuarios`; esta guía migra la base de datos, no las cuentas a Supabase Auth.
+
+### Preparar el proyecto Supabase
+
+1. Crea un proyecto Supabase vacío y guarda de forma segura la contraseña de su base de datos.
+2. En **Connect**, copia la cadena de conexión **Session pooler** (puerto `5432`). Este backend es un servidor Express persistente, por lo que no necesita el Transaction pooler.
+3. Haz una copia de `backend/.env` y cambia `DATABASE_URL` por esa cadena. Mantén `JWT_SECRET` y las demás variables actuales. No compartas ni subas el `.env` al repositorio.
+4. Desde `backend`, aplica el esquema existente y genera Prisma:
+
+```powershell
+npm run prisma:deploy
+npm run prisma:generate
+```
+
+`prisma:deploy` aplica las migraciones versionadas de `prisma/migrations` sin borrar datos. En el proyecto recién creado creará las tablas y el historial de Prisma.
+
+### Empezar con la base vacía
+
+Esta configuración aplica únicamente el esquema y deja la base Supabase sin registros. No ejecutes exportaciones desde Laragon: sus datos locales seguirán intactos, pero usuarios, canchas, reservas y partidos no estarán en Supabase. Las cuentas deberán registrarse nuevamente.
+
+Cuando el proyecto Supabase esté creado, configura `DATABASE_URL` con su Session pooler en el entorno del backend, ejecuta las migraciones de arriba y reinicia el servidor. Comprueba el registro, el inicio de sesión y las operaciones principales. No pegues cadenas de conexión, contraseñas ni `JWT_SECRET` en el chat.
+
 ## Endpoints Principales de la API
 * Autenticacion: /api/v1/auth/register, /api/v1/auth/login
 * Usuarios: /api/v1/users/me
