@@ -12,6 +12,12 @@ Base de datos relacional implementada en PostgreSQL mediante Prisma ORM.
 * **participantes**: id_participante (PK), id_partido (FK -> partidos), id_usuario (FK -> usuarios), estado, fecha_union.
 * **notificaciones**: id_notificacion (PK), id_usuario (FK -> usuarios), titulo, mensaje, leida, fecha_creacion.
 * **cierres_canchas**: id_cierre (PK), id_cancha (FK -> canchas), fecha, creado_en. La combinacion cancha/fecha es unica; un cierre puntual no cambia los horarios semanales.
+* **usuarios.puntaje_confiabilidad**: puntaje individual entero entre 0 y 100, inicializado en 100 y protegido por una restriccion de base de datos.
+* **reportes_inasistencia**: reporte del organizador a un jugador aceptado; queda pendiente hasta la decisión administrativa y es unico por partido/jugador.
+* **movimientos_confiabilidad**: historial de variaciones con motivo, delta, puntaje anterior/resultante, partido/reporte y fecha. Los reportes son unicos por jugador/partido; las penalizaciones de abandono se registran para cada salida confirmada y las penalizaciones de cancelacion solo al cancelar el partido activo.
+* **revisiones_confiabilidad**: apelacion de un descuento, con decision administrativa y referencia al movimiento compensatorio cuando se acepta.
+
+Los cambios de puntaje y sus notificaciones se escriben en la misma transaccion. Los cambios se limitan a 0–100; una correccion administrativa tambien queda en el historial.
 
 ## Cuentas de Prueba / Credenciales de Desarrollo
 

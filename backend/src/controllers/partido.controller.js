@@ -42,7 +42,7 @@ const remove = asyncHandler(async (req, res) => {
   await partidoService.remove(req.user, req.params.id);
   res.status(200).json({
     success: true,
-    message: "Partido eliminado correctamente",
+    message: "Partido cancelado correctamente",
     data: {},
   });
 });
@@ -74,4 +74,19 @@ const getParticipants = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { create, list, getById, update, remove, join, leave, getParticipants };
+const reportNoShow = asyncHandler(async (req, res) => {
+  const reporte = await partidoService.reportNoShow(
+    req.user,
+    req.params.id,
+    req.body || {}
+  );
+  res.status(201).json({
+    success: true,
+    message: "Reporte enviado para revisión administrativa",
+    data: { reporte },
+  });
+});
+
+module.exports = {
+  create, list, getById, update, remove, join, leave, getParticipants, reportNoShow,
+};

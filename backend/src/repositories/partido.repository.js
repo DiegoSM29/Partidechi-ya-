@@ -7,7 +7,13 @@ const findById = (id_partido, client = prisma) =>
     where: { id_partido },
     include: {
       organizador: {
-        select: { id_usuario: true, nombre: true, apellido: true, correo: true },
+        select: {
+          id_usuario: true,
+          nombre: true,
+          apellido: true,
+          correo: true,
+          puntaje_confiabilidad: true,
+        },
       },
       reserva: {
         include: {
@@ -17,7 +23,13 @@ const findById = (id_partido, client = prisma) =>
       participantes: {
         include: {
           usuario: {
-            select: { id_usuario: true, nombre: true, apellido: true, correo: true },
+            select: {
+              id_usuario: true,
+              nombre: true,
+              apellido: true,
+              correo: true,
+              puntaje_confiabilidad: true,
+            },
           },
         },
       },
@@ -33,7 +45,12 @@ const findMany = (where = {}, id_usuario, client = prisma) =>
     orderBy: { fecha_hora: "asc" },
     include: {
       organizador: {
-        select: { id_usuario: true, nombre: true, apellido: true },
+        select: {
+          id_usuario: true,
+          nombre: true,
+          apellido: true,
+          puntaje_confiabilidad: true,
+        },
       },
       reserva: {
         include: {

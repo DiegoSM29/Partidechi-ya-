@@ -6,6 +6,7 @@ const reservationRoutes = require("./reservation.routes");
 const paymentRoutes = require("./payment.routes");
 const matchRoutes = require("./match.routes");
 const notificationRoutes = require("./notification.routes");
+const confiabilidadRoutes = require("./confiabilidad.routes");
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use("/reservations", reservationRoutes);
 router.use("/payments", paymentRoutes);
 router.use("/matches", matchRoutes);
 router.use("/notifications", notificationRoutes);
+router.use("/reliability", confiabilidadRoutes);
 
 module.exports = router;

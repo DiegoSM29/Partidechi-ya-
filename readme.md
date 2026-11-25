@@ -39,7 +39,7 @@ DATABASE_URL="postgresql://usuario:contraseña@localhost:5432/partidechi_db?sche
 JWT_SECRET="tu_secreto_jwt_super_seguro"
 
 ### 4. Ejecutar las Migraciones de la Base de datos
-npx prisma migrate dev
+npx prisma migrate deploy
 npx prisma generate
 
 ### 5. Iniciar el Servidor en Modo Desarrollo
@@ -49,12 +49,13 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 ## Endpoints Principales de la API
 * Autenticacion: /api/v1/auth/register, /api/v1/auth/login
 * Usuarios: /api/v1/users/me
+* Confiabilidad: GET /api/v1/reliability, POST /api/v1/reliability/history/:id/reviews
 * Canchas: GET /api/v1/courts, GET /api/v1/courts/mine, POST /api/v1/courts, PATCH y DELETE /api/v1/courts/:id
 * Horarios y calendario mensual: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability, /api/v1/courts/:id/calendar?mes=YYYY-MM
 * Cierres: POST /api/v1/courts/closures/preview, POST /api/v1/courts/closures, GET /api/v1/courts/closures?fecha=YYYY-MM-DD, DELETE /api/v1/courts/:id/closures?fecha=YYYY-MM-DD
 * Reservas: POST /api/v1/reservations, GET /api/v1/reservations, GET /api/v1/reservations/:id, POST /api/v1/reservations/:id/cancel, POST /api/v1/reservations/:id/confirm
 * Pagos: GET /api/v1/reservations/:id/payments/amount, POST /api/v1/reservations/:id/payments/paypal/simulate, POST /api/v1/reservations/:id/payments/paypal/capture, POST /api/v1/reservations/:id/payments, GET /api/v1/reservations/:id/payments, POST /api/v1/payments/:id/verify
-* Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, DELETE /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants
+* Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, DELETE /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants, POST /api/v1/matches/:id/no-show-reports
 * Administracion: /api/v1/admin/users, /api/v1/admin/statistics
 * Notificaciones: GET /api/v1/notifications, PATCH /api/v1/notifications/:id/read
 
@@ -74,7 +75,7 @@ Los deportes permitidos son futbol 5, futbol 8, futbol 11, wally, padel y fronto
 
 Las altas y cambios de ubicacion requieren direccion, latitud y longitud. El backend verifica que el punto corresponda al departamento de Cochabamba, Bolivia, mediante geocodificacion inversa de Nominatim; una ubicacion fuera del departamento se rechaza.
 
-La tabla `canchas` se crea y amplía mediante las migraciones incluidas en `prisma/migrations`. Para aplicar las migraciones pendientes en una base local, ejecuta `npx prisma migrate dev` desde `backend` y luego `npx prisma generate`.
+La tabla `canchas` se crea y amplía mediante las migraciones incluidas en `prisma/migrations`. Para aplicar las migraciones pendientes sin resetear la base, ejecuta `npx prisma migrate deploy` desde `backend` y luego `npx prisma generate`.
 
 ## Horarios y Disponibilidad
 
@@ -157,10 +158,10 @@ Se implementó la creación y gestión de partidos amistosos asociados a reserva
   - La capacidad de participantes se define por partido y no depende de un límite establecido por el propietario de la cancha.
   - `POST /api/v1/matches` crea un partido asociado obligatoriamente a una `reserva` válida y confirmada. El deporte se toma de la cancha reservada (no editable manualmente). El organizador se agrega automáticamente como participante aceptado.
   - `GET /api/v1/matches` lista partidos públicos publicados. `GET /api/v1/matches/:id` consulta el detalle con participantes. `PATCH /api/v1/matches/:id` queda reservado al administrador para moderación: un partido creado por un jugador no puede modificarse después de su creación.
-  - `DELETE /api/v1/matches/:id` permite al organizador eliminar su partido publicado únicamente cuando faltan al menos 24 horas para su inicio; el backend aplica el control de identidad y plazo.
+  - `DELETE /api/v1/matches/:id` cancela el partido del organizador (sin eliminar su historial), únicamente cuando faltan al menos 24 horas para el inicio. Si hay otro participante confirmado, descuenta 10 puntos al organizador y notifica a los participantes; si no hay, no se descuentan puntos. La reserva confirmada puede reutilizarse para organizar otro partido.
   - `POST /api/v1/matches/:id/join` permite a jugadores unirse solo a partidos publicados con plazas disponibles; la operación bloquea el partido en transacción para evitar sobrepasar su capacidad en solicitudes simultáneas y evita duplicados, permitiendo volver a unirse tras abandonar.
   - La asistencia se confirma al unirse y el backend rechaza nuevas confirmaciones durante los últimos 30 minutos previos al inicio. El detalle muestra la ubicación de la cancha y un rango informativo del aporte por jugador calculado a partir del precio de la reserva, el cupo y los participantes actuales; no se inicia ningún cobro ni flujo de PayPal.
-  - `POST /api/v1/matches/:id/leave` permite abandonar el partido (el organizador no puede abandonar).
+  - `POST /api/v1/matches/:id/leave` permite abandonar el partido (el organizador no puede abandonar) y descuenta 5 puntos por cada salida tras confirmar asistencia.
   - `GET /api/v1/matches/:id/participants` consulta la lista de participantes.
   - El partido indica `nombre`, `deporte`, `fecha_hora`, `jugadores_maximos`, `descripcion`, `estado` y está asociado a una reserva confirmada cuando requiere cancha.
 
@@ -172,7 +173,7 @@ Se implementó la creación y gestión de partidos amistosos asociados a reserva
   - La barra superior resalta la pestaña activa (Buscar canchas, Partidos, Crear partido, Mis canchas, Reservas o Perfil), incluyendo las vistas de detalle y subrutas de cada sección.
   - El propietario ya no configura un límite de jugadores en la cancha; el organizador establece la capacidad del encuentro al crear cada partido.
   - El detalle del partido actualiza participantes y plazas disponibles después de unirse, e impide un segundo registro del mismo usuario.
-  - Vista de detalle del partido con lista de participantes, control de plazas, opción para unirse o abandonar y eliminación por el organizador con un mínimo de 24 horas de anticipación.
+  - Vista de detalle del partido con lista de participantes y sus puntajes de confiabilidad, control de plazas, opción para unirse o abandonar y cancelación por el organizador con un mínimo de 24 horas de anticipación. Las confirmaciones advierten los descuentos de 5 puntos por abandono y 10 puntos por cancelar con participantes confirmados.
   - Al confirmar asistencia se muestra la ubicación y el rango estimado de costo compartido de la reserva, junto al límite de 30 minutos; es informativo y no requiere pago.
   - Se corrigió la carga del detalle de reserva y la respuesta de creación del backend para que el acceso "Organizar partido" envíe el identificador de reserva y abra correctamente el partido creado.
   - El filtro por precio máximo muestra canchas con precio menor o igual al valor ingresado y permite ingresar valores intermedios en incrementos de Bs. 1.
@@ -270,7 +271,20 @@ El jugador puede consultar su historial de reservas independientemente de la nav
 - Desde el calendario mensual de una cancha propia, el propietario puede cerrar un día actual o futuro, revisar sus reservas pendientes/confirmadas afectadas y confirmar la operación.
 - No se permite cerrar una fecha sin horario semanal configurado para ese día.
 - El backend crea los cierres, cancela las reservas y registra una notificación para cada jugador dentro de una transacción. Si la operación falla, no se aplica ningún cambio parcial.
+- Los partidos asociados a reservas afectadas también se cancelan y se notifica a sus participantes. El descuento al propietario se aplica solo a dos partidos como máximo por operación; los jugadores no reciben descuentos por la cancelación.
 - La disponibilidad no muestra turnos reservables y las nuevas reservas se rechazan para una cancha cerrada en esa fecha. El cierre no modifica el horario semanal ni el importe/estado de pagos.
 - Un índice único por cancha y fecha evita cierres duplicados. Los jugadores consultan y marcan como leídas sus notificaciones en `/notifications`.
 - Propietarios y jugadores consultan un calendario mensual; cada fecha indica si hay turnos disponibles, está cerrada, no tiene horario configurado o no tiene turnos libres.
 - El propietario puede reabrir un día desde el calendario de esa cancha; solo se elimina el cierre seleccionado y se mantienen canceladas las reservas anteriores.
+
+## Puntaje de Confiabilidad (HU-12)
+
+- Cada cuenta inicia con 100 puntos individuales. El valor se mantiene entre 0 y 100 y cada variación conserva motivo, fecha, puntaje anterior y resultado.
+- El organizador puede reportar la inasistencia de un jugador aceptado una vez por partido. El descuento de 20 puntos ocurre solamente cuando un administrador valida el reporte.
+- Si un cierre afecta partidos organizados, el propietario pierde 15 puntos por partido cancelado, hasta 30 por operación. La vista previa muestra los partidos y el descuento estimado; las cancelaciones no restan puntos a sus jugadores.
+- Abandonar un partido aceptado descuenta 5 puntos por cada salida confirmada; cancelar un partido con al menos otro participante aceptado descuenta 10 puntos al organizador y notifica a sus participantes. Al cancelar sin otros participantes no hay descuento. El organizador y los participantes confirmados no pierden puntos por la cancelación.
+- Los avisos de descuento y de cambio de permisos se registran antes de actualizar el puntaje en la misma transacción. El usuario puede solicitar revisión desde su perfil (`/profile`); el administrador acepta o rechaza apelaciones y puede corregir el puntaje con motivo registrado.
+- El perfil muestra el puntaje, permisos e historial; otros jugadores pueden ver el puntaje del organizador en la lista/detalle de partidos y el de participantes aceptados en el detalle.
+- Rangos: 80–100 sin restricciones; 60–79 advertencia sin cambios de acciones; 40–59 el jugador no se une a partidos y el propietario no registra canchas; 1–39 el jugador tampoco crea reservas y el propietario tampoco publica disponibilidad; 0 requiere revisión administrativa para recuperar esas acciones.
+- Las restricciones solo impiden acciones nuevas: no cancelan reservas ni partidos existentes, ni impiden consultar o atender compromisos. No hay recuperación automática por actividad.
+- APIs administrativas: `GET /api/v1/reliability/admin/reports`, `PATCH /api/v1/reliability/admin/reports/:id`, `GET /api/v1/reliability/admin/reviews`, `PATCH /api/v1/reliability/admin/reviews/:id` y `PATCH /api/v1/reliability/admin/users/:id/score`.

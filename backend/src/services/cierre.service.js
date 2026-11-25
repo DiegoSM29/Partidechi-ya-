@@ -3,6 +3,7 @@ const ApiError = require("../utils/ApiError");
 const cierreRepository = require("../repositories/cierre.repository");
 const horarioRepository = require("../repositories/horario.repository");
 const { parseDateOnly, todayDateOnly } = require("../utils/scheduleTime");
+const confiabilidadService = require("./confiabilidad.service");
 
 const parseSelection = (input = {}) => {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -148,6 +149,7 @@ const buildPreview = (canchas, reservas) => {
       hora_inicio: reserva.hora_inicio,
       hora_fin: reserva.hora_fin,
       estado: reserva.estado,
+      partido: reserva.partido,
       jugador: reserva.usuario
         ? `${reserva.usuario.nombre} ${reserva.usuario.apellido}`.trim()
         : "Jugador",
@@ -169,10 +171,19 @@ const preview = async (id_propietario, input) => {
     id_canchas,
     fechaInfo.fecha
   );
+  const partidosAfectados = reservas.filter(
+    (reserva) => reserva.partido && ["PUBLICADO", "PRIVADO"].includes(reserva.partido.estado)
+  );
+  const propietario = await confiabilidadService.getScore(id_propietario);
   return {
     fecha: fechaInfo.fechaTexto,
     canchas: buildPreview(canchas, reservas),
     reservas_afectadas: reservas.length,
+    partidos_afectados: partidosAfectados.length,
+    descuento_confiabilidad: Math.min(
+      partidosAfectados.length * 15,
+      propietario.puntaje_confiabilidad
+    ),
     reservas_revision: reservas.map((reserva) => reserva.id_reserva).sort((a, b) => a - b),
   };
 };
@@ -212,6 +223,13 @@ const apply = async (id_propietario, input) => {
           );
         }
 
+        const todosPartidosAfectados = reservas
+          .filter(
+            (reserva) =>
+              reserva.partido &&
+              ["PUBLICADO", "PRIVADO"].includes(reserva.partido.estado)
+          );
+        const partidosAfectados = todosPartidosAfectados.slice(0, 2);
         await cierreRepository.createClosures(
           id_canchas.map((id_cancha) => ({
             id_cancha,
@@ -230,6 +248,16 @@ const apply = async (id_propietario, input) => {
             "Las reservas cambiaron durante la operación. Vuelve a revisar el cierre"
           );
         }
+        const partidosCancelados = await cierreRepository.cancelAffectedMatches(
+          todosPartidosAfectados.map((reserva) => reserva.id_reserva),
+          tx
+        );
+        if (partidosCancelados.count !== todosPartidosAfectados.length) {
+          throw new ApiError(
+            409,
+            "Los partidos afectados cambiaron durante la operación. Vuelve a revisar el cierre"
+          );
+        }
 
         await cierreRepository.createNotifications(
           reservas.map((reserva) => ({
@@ -239,11 +267,42 @@ const apply = async (id_propietario, input) => {
           })),
           tx
         );
+        const participantesAfectados =
+          await cierreRepository.findAcceptedParticipantsForMatches(
+            todosPartidosAfectados.map((reserva) => reserva.partido.id_partido),
+            tx
+          );
+        await cierreRepository.createNotifications(
+          participantesAfectados.map((participante) => ({
+            id_usuario: participante.id_usuario,
+            titulo: "Partido cancelado por cierre de cancha",
+            mensaje: `El partido "${participante.partido.nombre}" fue cancelado porque el propietario cerró la cancha. La cancelación no afecta tu puntaje de confiabilidad.`,
+          })),
+          tx
+        );
+
+        let descuentoConfiabilidad = 0;
+        for (const reserva of partidosAfectados) {
+          const movimiento = await confiabilidadService.changeScore(tx, {
+            id_usuario: id_propietario,
+            delta: -15,
+            tipo: "CIERRE_CANCHA",
+            id_partido: reserva.partido.id_partido,
+            referencia_operacion: fechaInfo.fechaTexto,
+            motivo: `Cierre de cancha que canceló el partido "${reserva.partido.nombre}" del ${fechaInfo.fechaTexto}`,
+            titulo: "Descuento por cierre de cancha",
+            detalle: ({ delta, puntaje }) =>
+              `El cierre de cancha canceló el partido "${reserva.partido.nombre}". Se descontaron ${delta} puntos; tu nuevo puntaje es ${puntaje}.`,
+          });
+          descuentoConfiabilidad -= movimiento.puntos_delta;
+        }
 
         return {
           fecha: fechaInfo.fechaTexto,
           canchas,
           reservas_canceladas: canceladas.count,
+          partidos_afectados: todosPartidosAfectados.length,
+          descuento_confiabilidad: descuentoConfiabilidad,
         };
       },
       { isolationLevel: "Serializable" }
