@@ -17,8 +17,8 @@ Todos los endpoints operan bajo el prefijo base `/api/v1`.
 ## Canchas y Disponibilidad
 * GET `/api/v1/courts` - Consultar canchas disponibles
 * GET `/api/v1/courts/mine` - Consultar las canchas propias (Propietario)
-* POST `/api/v1/courts` - Registrar una cancha con `ubicacion`, `latitud` y `longitud` dentro del departamento de Cochabamba, Bolivia (Propietario)
-* PATCH `/api/v1/courts/:id` - Actualizar una cancha propia y validar sus coordenadas (Propietario)
+* POST `/api/v1/courts` - Registrar una cancha con `ubicacion`, `latitud` y `longitud` dentro del departamento de Cochabamba, Bolivia; opcionalmente admite hasta 5 archivos `imagenes` (JPG, PNG o WebP, maximo 5 MB cada uno) en `multipart/form-data` (Propietario)
+* PATCH `/api/v1/courts/:id` - Actualizar una cancha propia; acepta `imagenes_mantener` (JSON con URLs existentes) y nuevos archivos `imagenes` en `multipart/form-data` (hasta 5 imágenes en total) (Propietario)
 * DELETE `/api/v1/courts/:id` - Eliminar una cancha propia (Propietario)
 * GET `/api/v1/courts/:id/schedules` - Consultar intervalos de funcionamiento registrados (alias `/horarios`)
 * POST `/api/v1/courts/:id/schedules` - Registrar horarios de funcionamiento (Propietario)

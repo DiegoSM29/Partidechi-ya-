@@ -1,6 +1,15 @@
 const canchaService = require("../services/cancha.service");
 const asyncHandler = require("../utils/asyncHandler");
 
+const getInput = (req) => req.is("multipart/form-data")
+  ? {
+      ...req.body,
+      latitud: Number(req.body.latitud),
+      longitud: Number(req.body.longitud),
+      precio_hora: Number(req.body.precio_hora),
+    }
+  : req.body;
+
 const listAll = asyncHandler(async (req, res) => {
   const filters = {
     deporte: req.query.deporte || req.query.sport || req.query.tipo,
@@ -34,7 +43,11 @@ const listMine = asyncHandler(async (req, res) => {
 });
 
 const create = asyncHandler(async (req, res) => {
-  const cancha = await canchaService.create(req.user.id_usuario, req.body);
+  const cancha = await canchaService.create(
+    req.user.id_usuario,
+    getInput(req),
+    req.files || []
+  );
   res.status(201).json({
     success: true,
     message: "Cancha registrada correctamente",
@@ -46,7 +59,8 @@ const updateMine = asyncHandler(async (req, res) => {
   const cancha = await canchaService.updateMine(
     req.user.id_usuario,
     req.params.id,
-    req.body
+    getInput(req),
+    req.files || []
   );
   res.status(200).json({
     success: true,

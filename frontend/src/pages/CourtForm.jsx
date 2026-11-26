@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, ImagePlus, Save, X } from "lucide-react";
 import api, { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
@@ -26,6 +26,9 @@ const FORM_VACIO = {
   deporte: "",
   precio_hora: "",
 };
+const MAX_IMAGE_COUNT = 5;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const CourtForm = () => {
   const { id } = useParams();
@@ -37,6 +40,10 @@ const CourtForm = () => {
   const [error, setError] = useState("");
   const [errores, setErrores] = useState({});
   const [addressRevision, setAddressRevision] = useState(0);
+  const [imagenes, setImagenes] = useState([]);
+  const [imagenesExistentes, setImagenesExistentes] = useState([]);
+  const [imagenesModificadas, setImagenesModificadas] = useState(false);
+  const previewUrls = useRef(new Set());
 
   useEffect(() => {
     if (!id) return;
@@ -62,6 +69,7 @@ const CourtForm = () => {
           deporte: cancha.deporte,
           precio_hora: String(cancha.precio_hora),
         });
+        setImagenesExistentes(cancha.imagenes || []);
       } catch (e) {
         setError(getApiError(e));
       } finally {
@@ -70,6 +78,11 @@ const CourtForm = () => {
     };
     cargarCancha();
   }, [id]);
+
+  useEffect(
+    () => () => previewUrls.current.forEach((url) => URL.revokeObjectURL(url)),
+    []
+  );
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -112,9 +125,29 @@ const CourtForm = () => {
       precio_hora: Number(form.precio_hora),
     };
 
+    const crearFormData = () => {
+      const formData = new FormData();
+      Object.entries(payload).forEach(([key, value]) => formData.append(key, value));
+      if (editando) {
+        formData.append("imagenes_mantener", JSON.stringify(imagenesExistentes));
+      }
+      imagenes.forEach(({ file }) => formData.append("imagenes", file));
+      return formData;
+    };
+
     try {
       if (editando) {
-        await api.patch(`/courts/${id}`, payload);
+        if (imagenesModificadas) {
+          await api.patch(`/courts/${id}`, crearFormData(), {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        } else {
+          await api.patch(`/courts/${id}`, payload);
+        }
+      } else if (imagenes.length > 0) {
+        await api.post("/courts", crearFormData(), {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else {
         await api.post("/courts", payload);
       }
@@ -134,6 +167,35 @@ const CourtForm = () => {
     Number.isFinite(Number(form.latitud)) &&
     Number.isFinite(Number(form.longitud)) &&
     isWithinCochabambaBounds(Number(form.latitud), Number(form.longitud));
+  const totalImagenes = imagenesExistentes.length + imagenes.length;
+
+  const handleImagesChange = (event) => {
+    const seleccionadas = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (totalImagenes + seleccionadas.length > MAX_IMAGE_COUNT) {
+      setError("Puedes añadir como máximo 5 imágenes.");
+      return;
+    }
+    const invalida = seleccionadas.find(
+      (imagen) => !IMAGE_TYPES.includes(imagen.type) || imagen.size > MAX_IMAGE_SIZE
+    );
+    if (invalida) {
+      setError(
+        !IMAGE_TYPES.includes(invalida.type)
+          ? "Usa imágenes JPG, PNG o WebP."
+          : "Cada imagen debe pesar como máximo 5 MB."
+      );
+      return;
+    }
+    const nuevasImagenes = seleccionadas.map((file) => {
+      const preview = URL.createObjectURL(file);
+      previewUrls.current.add(preview);
+      return { file, preview };
+    });
+    setImagenes((actuales) => [...actuales, ...nuevasImagenes]);
+    if (seleccionadas.length > 0) setImagenesModificadas(true);
+    setError("");
+  };
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:py-10">
@@ -202,6 +264,79 @@ const CourtForm = () => {
               <input required id="court-price" type="number" min="0" step="0.01" name="precio_hora" value={form.precio_hora} onChange={handleChange} placeholder="0.00" aria-invalid={Boolean(errores.precio_hora)} aria-describedby={errores.precio_hora ? "court-price-error" : undefined} className="w-full min-w-0 px-3.5 py-2.5 text-sm text-slate-900 outline-none" />
             </div>
           </Campo>
+          <section aria-labelledby="court-images-label" className="space-y-3">
+            <div>
+              <h2 id="court-images-label" className="text-sm font-medium text-slate-700">
+                Imágenes de la cancha (opcional)
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Hasta 5 imágenes JPG, PNG o WebP; máximo 5 MB cada una.
+              </p>
+            </div>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-4 text-sm font-medium text-slate-700 transition hover:border-emerald-600 hover:bg-emerald-50">
+              <ImagePlus size={18} />
+              Añadir imágenes ({totalImagenes}/{MAX_IMAGE_COUNT})
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={handleImagesChange}
+                disabled={totalImagenes >= MAX_IMAGE_COUNT}
+                className="sr-only"
+                aria-label="Seleccionar imágenes de la cancha"
+              />
+            </label>
+            {imagenesExistentes.length + imagenes.length > 0 ? (
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {imagenesExistentes.map((imageUrl, index) => (
+                  <li key={imageUrl} className="relative">
+                    <img
+                      src={imageUrl}
+                      alt={`Imagen actual ${index + 1} de la cancha`}
+                      className="h-28 w-full rounded-lg object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImagenesExistentes((actuales) =>
+                          actuales.filter((url) => url !== imageUrl)
+                        );
+                        setImagenesModificadas(true);
+                      }}
+                      aria-label={`Quitar imagen actual ${index + 1}`}
+                      className="absolute right-1.5 top-1.5 rounded-full bg-white/90 p-1.5 text-slate-800 shadow hover:bg-white"
+                    >
+                      <X size={15} />
+                    </button>
+                  </li>
+                ))}
+                {imagenes.map(({ file, preview }, index) => (
+                  <li key={`${file.name}-${index}`} className="relative">
+                    <img
+                      src={preview}
+                      alt={`Vista previa de ${file.name}`}
+                      className="h-28 w-full rounded-lg object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        URL.revokeObjectURL(preview);
+                        previewUrls.current.delete(preview);
+                        setImagenes((actuales) =>
+                          actuales.filter((_, imagenIndex) => imagenIndex !== index)
+                        );
+                        setImagenesModificadas(true);
+                      }}
+                      aria-label={`Quitar ${file.name}`}
+                      className="absolute right-1.5 top-1.5 rounded-full bg-white/90 p-1.5 text-slate-800 shadow hover:bg-white"
+                    >
+                      <X size={15} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
           <button type="submit" disabled={guardando || (editando && !form.nombre)} className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60">
             {guardando ? <Spinner className="h-4 w-4 text-white" /> : <Save size={16} />}
             {guardando ? "Guardando..." : editando ? "Guardar cambios" : "Crear cancha"}
