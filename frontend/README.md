@@ -80,7 +80,7 @@ npm run dev        → http://localhost:5173
 
 La vista **Mis canchas** muestra primero las canchas del propietario autenticado. Cada registro ofrece acciones para ver su ubicación en un modal, editarla o eliminarla con confirmación. La API aplica la misma restricción por propietario, independientemente de los controles de interfaz.
 
-El formulario registra nombre, ubicación, deporte y precio por hora. El deporte se selecciona entre Fútbol 5, Fútbol 8, Fútbol 11, Wally, Pádel y Frontón.
+El formulario registra nombre, ubicación, deporte y precio por hora. Al crear o editar una cancha se pueden añadir y quitar hasta 5 imágenes JPG, PNG o WebP de hasta 5 MB cada una; se muestran en la búsqueda y en el detalle de disponibilidad. El deporte se selecciona entre Fútbol 5, Fútbol 8, Fútbol 11, Wally, Pádel y Frontón.
 
 ### Ubicacion en el Mapa
 

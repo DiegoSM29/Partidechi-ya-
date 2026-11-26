@@ -4,6 +4,7 @@ import { Calendar, Filter, MapPin, MapPinned, Search, SlidersHorizontal } from "
 import api, { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
+import CourtImageGallery from "../components/CourtImageGallery";
 
 const CourtLocationModal = lazy(() => import("../components/CourtLocationModal"));
 
@@ -243,6 +244,11 @@ const CourtSearch = () => {
                 key={cancha.id_cancha}
                 className="group rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
+                <CourtImageGallery
+                  images={cancha.imagenes}
+                  title={cancha.nombre}
+                  compact
+                />
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

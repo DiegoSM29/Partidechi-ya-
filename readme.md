@@ -50,6 +50,8 @@ El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 
 El backend ya se conecta a PostgreSQL con Prisma, por lo que no necesita el SDK de Supabase para guardar datos. Este proyecto mantiene su autenticación actual con JWT y la tabla `usuarios`; esta guía migra la base de datos, no las cuentas a Supabase Auth.
 
+Para almacenar fotos de canchas, crea además un bucket público de Supabase Storage llamado `court-images`, con límite de 5 MB por archivo y tipos permitidos JPG, PNG y WebP. Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_STORAGE_BUCKET=court-images` únicamente en `backend/.env`; nunca expongas la clave `service_role` en el frontend ni la subas al repositorio.
+
 ### Preparar el proyecto Supabase
 
 1. Crea un proyecto Supabase vacío y guarda de forma segura la contraseña de su base de datos.
@@ -93,8 +95,8 @@ Los deportes permitidos son futbol 5, futbol 8, futbol 11, wally, padel y fronto
 |---|---|---|---|
 | GET | `/api/v1/courts` | Publico | Consultar canchas disponibles |
 | GET | `/api/v1/courts/mine` | Propietario | Consultar las canchas propias |
-| POST | `/api/v1/courts` | Propietario | Registrar una cancha |
-| PATCH | `/api/v1/courts/:id` | Propietario | Editar una cancha propia |
+| POST | `/api/v1/courts` | Propietario | Registrar una cancha; acepta hasta 5 imágenes JPG, PNG o WebP de máximo 5 MB cada una |
+| PATCH | `/api/v1/courts/:id` | Propietario | Editar una cancha propia y mantener, añadir o eliminar imágenes |
 | DELETE | `/api/v1/courts/:id` | Propietario | Eliminar una cancha propia |
 
 Las altas y cambios de ubicacion requieren direccion, latitud y longitud. El backend verifica que el punto corresponda al departamento de Cochabamba, Bolivia, mediante geocodificacion inversa de Nominatim; una ubicacion fuera del departamento se rechaza.

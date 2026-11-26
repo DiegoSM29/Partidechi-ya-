@@ -3,6 +3,7 @@ const canchaController = require("../controllers/cancha.controller");
 const horarioController = require("../controllers/horario.controller");
 const reservaController = require("../controllers/reserva.controller");
 const cierreController = require("../controllers/cierre.controller");
+const { parseCourtImages } = require("../middlewares/court-image-upload.middleware");
 const { authenticate } = require("../middlewares/auth.middleware");
 const { authorize } = require("../middlewares/role.middleware");
 
@@ -35,8 +36,20 @@ router.delete(
 router.get("/", canchaController.listAll);
 router.get("/mine", authenticate, authorize("PROPIETARIO"), canchaController.listMine);
 router.get("/:id", canchaController.getById);
-router.post("/", authenticate, authorize("PROPIETARIO"), canchaController.create);
-router.patch("/:id", authenticate, authorize("PROPIETARIO"), canchaController.updateMine);
+router.post(
+  "/",
+  authenticate,
+  authorize("PROPIETARIO"),
+  parseCourtImages,
+  canchaController.create
+);
+router.patch(
+  "/:id",
+  authenticate,
+  authorize("PROPIETARIO"),
+  parseCourtImages,
+  canchaController.updateMine
+);
 router.delete("/:id", authenticate, authorize("PROPIETARIO"), canchaController.deleteMine);
 
 // Horarios de funcionamiento (se aceptan /schedules y /horarios como alias).

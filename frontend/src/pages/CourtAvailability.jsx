@@ -5,6 +5,7 @@ import api, { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
 import CourtMonthlyCalendar from "../components/CourtMonthlyCalendar";
+import CourtImageGallery from "../components/CourtImageGallery";
 
 const CourtLocationModal = lazy(() => import("../components/CourtLocationModal"));
 
@@ -106,6 +107,11 @@ const CourtAvailability = () => {
           </p>
         </div>
       </header>
+
+      <CourtImageGallery
+        images={cancha?.imagenes || disponibilidad?.cancha?.imagenes}
+        title={cancha?.nombre || disponibilidad?.cancha?.nombre || "la cancha"}
+      />
 
       <div className="mb-6">
         <CourtMonthlyCalendar
