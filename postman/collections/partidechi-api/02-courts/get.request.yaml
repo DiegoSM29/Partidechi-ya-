@@ -1,0 +1,15 @@
+$kind: http-request
+name: Detalle de cancha
+method: GET
+url: '{{base_url}}/courts/{{court_id}}'
+order: 3100
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("devuelve el detalle de la cancha", () => {
+        pm.response.to.have.status(200);
+        const cancha = pm.response.json().data.cancha;
+        pm.expect(String(cancha.id_cancha)).to.eql(String(pm.collectionVariables.get("court_id")));
+        pm.expect(cancha.deporte).to.be.a("string").and.not.empty;
+        pm.expect(cancha.precio_hora).to.be.a("number").and.at.least(0);
+      });

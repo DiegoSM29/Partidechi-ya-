@@ -1,0 +1,18 @@
+$kind: http-request
+name: Disponibilidad por fecha
+method: GET
+url: '{{base_url}}/courts/{{court_id}}/availability?fecha={{fecha}}'
+order: 3300
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("hay al menos un turno disponible", () => {
+        pm.response.to.have.status(200);
+        const data = pm.response.json().data;
+        pm.expect(data.cerrada).to.eql(false);
+        pm.expect(data.disponibles).to.be.an("array").that.is.not.empty;
+        const slot = data.disponibles[0];
+        pm.expect(slot.hora_inicio).to.match(/^\d{2}:\d{2}$/);
+        pm.collectionVariables.set("hora_inicio", slot.hora_inicio);
+        pm.collectionVariables.set("hora_fin", slot.hora_fin);
+      });

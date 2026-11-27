@@ -1,0 +1,26 @@
+$kind: http-request
+name: Login jugador
+method: POST
+url: '{{base_url}}/auth/login'
+order: 2100
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "correo": "{{player_email}}",
+      "password": "{{player_password}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("el jugador inicia sesion", () => {
+        pm.response.to.have.status(200);
+        const data = pm.response.json().data;
+        pm.expect(data.token).to.be.a("string").and.not.empty;
+        pm.expect(data.user.rol).to.eql("JUGADOR");
+        pm.collectionVariables.set("player_token", data.token);
+        pm.collectionVariables.set("player_id", data.user.id_usuario);
+      });

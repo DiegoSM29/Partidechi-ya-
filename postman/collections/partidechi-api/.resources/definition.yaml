@@ -1,0 +1,21 @@
+$kind: collection
+name: Partidechi API
+description: >-
+  Regresión funcional de la API de Partidechi ya!. Cubre autenticación,
+  canchas, horarios, disponibilidad, reservas, pagos, partidos,
+  confiabilidad y notificaciones. Requiere datos sembrados con
+  tests/load/seed.js y un backend en ejecución.
+variables:
+  - key: court_id
+    value: ''
+    description: Se toma de GET /courts o del seed local.
+  - key: reservation_id
+    value: ''
+  - key: payment_id
+    value: ''
+  - key: match_id
+    value: ''
+  - key: owner_token
+    value: ''
+  - key: player_token
+    value: ''

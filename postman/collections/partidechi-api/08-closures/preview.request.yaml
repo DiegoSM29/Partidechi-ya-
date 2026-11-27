@@ -1,0 +1,27 @@
+$kind: http-request
+name: Vista previa de cierre
+method: POST
+url: '{{base_url}}/courts/closures/preview'
+order: 9000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+body:
+  type: json
+  content: |-
+    {
+      "fecha": "{{closure_fecha}}",
+      "id_canchas": [{{court_id}}]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("resume el cierre sin aplicarlo", () => {
+        pm.response.to.have.status(200);
+        const data = pm.response.json().data;
+        pm.expect(data.fecha).to.eql(pm.environment.get("closure_fecha"));
+        pm.expect(data.canchas).to.be.an("array").that.is.not.empty;
+        pm.expect(data.reservas_afectadas).to.be.a("number").and.at.least(0);
+      });

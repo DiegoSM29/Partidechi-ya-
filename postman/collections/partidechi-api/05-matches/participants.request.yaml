@@ -1,0 +1,15 @@
+$kind: http-request
+name: Participantes del partido
+method: GET
+url: '{{base_url}}/matches/{{match_id}}/participants'
+order: 6200
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("el organizador figura como participante aceptado", () => {
+        pm.response.to.have.status(200);
+        const participantes = pm.response.json().data.participantes;
+        pm.expect(participantes).to.be.an("array").that.is.not.empty;
+        const playerId = Number(pm.collectionVariables.get("player_id"));
+        pm.expect(participantes.some((p) => Number(p.id_usuario) === playerId)).to.eql(true);
+      });

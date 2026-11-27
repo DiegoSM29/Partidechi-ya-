@@ -1,0 +1,16 @@
+$kind: http-request
+name: Listar notificaciones
+method: GET
+url: '{{base_url}}/notifications'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{player_token}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("devuelve las notificaciones del jugador", () => {
+        pm.response.to.have.status(200);
+        const data = pm.response.json().data;
+        pm.expect(data.notificaciones).to.be.an("array");
+      });

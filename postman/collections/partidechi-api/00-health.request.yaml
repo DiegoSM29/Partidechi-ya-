@@ -1,0 +1,14 @@
+$kind: http-request
+name: Health
+method: GET
+url: '{{base_url}}/health'
+order: 1000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("la API responde operativa", () => {
+        pm.response.to.have.status(200);
+        const body = pm.response.json();
+        pm.expect(body.success).to.eql(true);
+        pm.expect(body.data.servicio).to.eql("partidechi-api");
+      });

@@ -55,6 +55,18 @@ npm run dev        → http://localhost:4000/api/v1
 npm run dev        → http://localhost:5173
 ```
 
+## Pruebas del Frontend
+
+Pruebas unitarias y de componentes con **Vitest + React Testing Library**. No necesitan backend, base de datos ni navegador:
+
+```powershell
+cd frontend
+npm test          # una pasada
+npm run test:watch
+```
+
+Cubren las validaciones de login/registro y el renderizado de `Alert`, `Spinner` y `LoadingScreen`. Las pruebas viven en `frontend/test/`, igual que el backend usa `backend/test/`.
+
 ## Rutas de la Aplicacion (HU-01)
 | Ruta | Acceso | Descripcion |
 |---|---|---|

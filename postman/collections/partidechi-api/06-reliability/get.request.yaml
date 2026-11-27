@@ -1,0 +1,18 @@
+$kind: http-request
+name: Consultar confiabilidad
+method: GET
+url: '{{base_url}}/reliability'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{player_token}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("devuelve puntaje y restricciones", () => {
+        pm.response.to.have.status(200);
+        const data = pm.response.json().data;
+        pm.expect(data.puntaje).to.be.a("number").within(0, 100);
+        pm.expect(data.restricciones).to.be.an("object");
+        pm.expect(data.historial).to.be.an("array");
+      });

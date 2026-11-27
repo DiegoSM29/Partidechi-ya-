@@ -1,0 +1,15 @@
+$kind: http-request
+name: Jugador no accede a canchas del propietario
+method: GET
+url: '{{base_url}}/courts/mine'
+order: 9500
+headers:
+  - key: Authorization
+    value: 'Bearer {{player_token}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("rechaza el acceso con 403", () => {
+        pm.response.to.have.status(403);
+        pm.expect(pm.response.json().success).to.eql(false);
+      });
