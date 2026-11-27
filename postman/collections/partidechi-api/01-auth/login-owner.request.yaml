@@ -1,0 +1,26 @@
+$kind: http-request
+name: Login propietario
+method: POST
+url: '{{base_url}}/auth/login'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "correo": "{{owner_email}}",
+      "password": "{{owner_password}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("el propietario inicia sesion", () => {
+        pm.response.to.have.status(200);
+        const data = pm.response.json().data;
+        pm.expect(data.token).to.be.a("string").and.not.empty;
+        pm.expect(data.user.rol).to.eql("PROPIETARIO");
+        pm.collectionVariables.set("owner_token", data.token);
+        pm.collectionVariables.set("owner_id", data.user.id_usuario);
+      });

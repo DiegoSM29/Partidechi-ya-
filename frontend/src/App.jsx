@@ -15,7 +15,10 @@ import CourtSearch from "./pages/CourtSearch";
 import CourtAvailability from "./pages/CourtAvailability";
 import ReservationCreate from "./pages/ReservationCreate";
 import ReservationPay from "./pages/ReservationPay";
+import MyReservations from "./pages/MyReservations";
+import ReservationDetail from "./pages/ReservationDetail";
 import OwnerReservations from "./pages/OwnerReservations";
+import Notifications from "./pages/Notifications";
 import Matches from "./pages/Matches";
 import MatchDetail from "./pages/MatchDetail";
 import CreateMatch from "./pages/CreateMatch";
@@ -31,9 +34,9 @@ const HomeRedirect = () => {
 };
 
 const App = () => (
-  <div className="flex min-h-screen flex-col">
+  <div className="app-shell flex min-h-screen flex-col">
     <Navbar />
-    <main className="flex-1">
+    <main className="app-main flex-1">
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
         <Route
@@ -73,6 +76,14 @@ const App = () => (
           element={
             <ProtectedRoute rol="PROPIETARIO">
               <CourtForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
             </ProtectedRoute>
           }
         />
@@ -129,6 +140,22 @@ const App = () => (
           element={
             <ProtectedRoute rol="PROPIETARIO">
               <OwnerReservations />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reservations"
+          element={
+            <ProtectedRoute rol="JUGADOR">
+              <MyReservations />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reservations/:id"
+          element={
+            <ProtectedRoute rol="JUGADOR">
+              <ReservationDetail />
             </ProtectedRoute>
           }
         />

@@ -1,0 +1,29 @@
+$kind: http-request
+name: Registrar pago manual
+method: POST
+url: '{{base_url}}/reservations/{{reservation_id}}/payments'
+order: 5100
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{player_token}}'
+body:
+  type: json
+  content: |-
+    {
+      "monto": {{amount}},
+      "metodo_pago": "TRANSFERENCIA",
+      "referencia": "REG-{{$timestamp}}",
+      "comprobante_url": "https://example.com/comprobante-{{$timestamp}}.pdf"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("registra un pago pendiente de verificacion", () => {
+        pm.response.to.have.status(201);
+        const pago = pm.response.json().data.pago;
+        pm.expect(pago.estado).to.eql("PENDIENTE");
+        pm.expect(pago.metodo_pago).to.eql("TRANSFERENCIA");
+        pm.collectionVariables.set("payment_id", pago.id_pago);
+      });

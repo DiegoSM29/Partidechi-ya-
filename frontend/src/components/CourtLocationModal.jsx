@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { MapPin, X } from "lucide-react";
 import L from "leaflet";
+import { createPortal } from "react-dom";
 import { MapContainer, Marker, Polygon, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { COURT_MAP_MARKER } from "./CourtMapMarker";
@@ -84,7 +85,7 @@ const CourtLocationModal = ({ cancha, onClose }) => {
     };
   }, [cancha.ubicacion, hasCoordinates]);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-3 sm:p-6"
       onMouseDown={(event) => {
@@ -97,7 +98,7 @@ const CourtLocationModal = ({ cancha, onClose }) => {
         aria-labelledby="court-location-title"
         className="relative isolate z-0 flex h-[92vh] max-h-[760px] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
       >
-        <header className="relative z-20 flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4 pr-14 sm:px-6 sm:pr-16">
+        <header className="relative z-20 flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase text-emerald-700">Ubicación de la cancha</p>
             <h2 id="court-location-title" className="mt-1 truncate text-lg font-semibold text-slate-950">
@@ -108,17 +109,16 @@ const CourtLocationModal = ({ cancha, onClose }) => {
               <span className="truncate">{cancha.ubicacion}</span>
             </p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar mapa"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+          >
+            <X size={17} />
+            <span>Cerrar mapa</span>
+          </button>
         </header>
-
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Cerrar mapa"
-          title="Cerrar mapa"
-          className="absolute right-3 top-3 z-[1000] rounded-lg bg-white p-2 text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-100 hover:text-slate-950"
-        >
-          <X size={20} />
-        </button>
 
         <div className="relative isolate z-0 min-h-0 flex-1 bg-slate-100">
           <MapContainer
@@ -168,7 +168,8 @@ const CourtLocationModal = ({ cancha, onClose }) => {
           Mapa y datos © OpenStreetMap contributors
         </footer>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 };
 

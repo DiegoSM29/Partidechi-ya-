@@ -12,6 +12,7 @@ router.delete("/:id", authenticate, partidoController.remove);
 router.patch("/:id", authenticate, partidoController.update);
 router.post("/:id/join", authenticate, partidoController.join);
 router.post("/:id/leave", authenticate, partidoController.leave);
+router.post("/:id/no-show-reports", authenticate, partidoController.reportNoShow);
 router.get("/:id/participants", partidoController.getParticipants);
 
 module.exports = router;

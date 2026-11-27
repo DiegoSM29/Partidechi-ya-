@@ -1,0 +1,23 @@
+$kind: http-request
+name: Jugador no puede verificar pagos
+method: POST
+url: '{{base_url}}/payments/{{payment_id}}/verify'
+order: 5300
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{player_token}}'
+body:
+  type: json
+  content: |-
+    {
+      "accion": "APROBAR"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("rechaza la verificacion con 403", () => {
+        pm.response.to.have.status(403);
+        pm.expect(pm.response.json().success).to.eql(false);
+      });

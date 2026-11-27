@@ -1,0 +1,29 @@
+$kind: http-request
+name: Crear reserva
+method: POST
+url: '{{base_url}}/reservations'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{player_token}}'
+body:
+  type: json
+  content: |-
+    {
+      "id_cancha": {{court_id}},
+      "fecha": "{{fecha}}",
+      "hora_inicio": "{{hora_inicio}}",
+      "hora_fin": "{{hora_fin}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("crea la reserva pendiente", () => {
+        pm.response.to.have.status(201);
+        const reserva = pm.response.json().data.reserva;
+        pm.expect(reserva.estado).to.eql("PENDIENTE");
+        pm.expect(reserva.monto_total).to.be.a("number").and.above(0);
+        pm.collectionVariables.set("reservation_id", reserva.id_reserva);
+      });

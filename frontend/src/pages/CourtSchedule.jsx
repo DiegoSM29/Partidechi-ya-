@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Clock, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarX, Clock, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import api, { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
 import { Campo, inputCls } from "../components/FormFields";
+import CourtMonthlyCalendar from "../components/CourtMonthlyCalendar";
 
 const DIAS = [
   { value: "1", label: "Lunes" },
@@ -45,6 +46,8 @@ const CourtSchedule = () => {
   const [disponibilidad, setDisponibilidad] = useState(null);
   const [cargandoDisponibilidad, setCargandoDisponibilidad] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [revisionCierre, setRevisionCierre] = useState(null);
+  const [procesandoCierre, setProcesandoCierre] = useState(false);
 
   useEffect(() => {
     let activo = true;
@@ -105,6 +108,13 @@ const CourtSchedule = () => {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((actual) => ({ ...actual, [name]: value }));
+    setError("");
+    setExito("");
+  };
+
+  const seleccionarFecha = (fechaSeleccionada) => {
+    setFecha(fechaSeleccionada);
+    setRevisionCierre(null);
     setError("");
     setExito("");
   };
@@ -183,6 +193,73 @@ const CourtSchedule = () => {
       setError(getApiError(e));
     } finally {
       setEliminando(null);
+    }
+  };
+
+  const revisarCierre = async () => {
+    setError("");
+    setExito("");
+    if (fecha < hoyLocal()) {
+      setError("No se puede cerrar una cancha en una fecha pasada.");
+      return;
+    }
+    setProcesandoCierre(true);
+    try {
+      const { data } = await api.post("/courts/closures/preview", {
+        fecha,
+        id_canchas: [Number(id)],
+      });
+      setRevisionCierre(data.data);
+    } catch (e) {
+      setError(getApiError(e));
+      setRevisionCierre(null);
+    } finally {
+      setProcesandoCierre(false);
+    }
+  };
+
+  const confirmarCierre = async () => {
+    if (!revisionCierre) return;
+    setError("");
+    setExito("");
+    setProcesandoCierre(true);
+    try {
+      const { data } = await api.post("/courts/closures", {
+        fecha: revisionCierre.fecha,
+        id_canchas: [Number(id)],
+        reservas_revision: revisionCierre.reservas_revision,
+      });
+      setRevisionCierre(null);
+      setDisponibilidad(null);
+      setRevision((valor) => valor + 1);
+      setExito(
+        `Cancha cerrada para el ${data.data.fecha}. Se cancelaron ${data.data.reservas_canceladas} reservas y ${data.data.partidos_afectados} partidos. Se descontaron ${data.data.descuento_confiabilidad} puntos de confiabilidad.`
+      );
+    } catch (e) {
+      setError(getApiError(e));
+    } finally {
+      setProcesandoCierre(false);
+    }
+  };
+
+  const reabrirCancha = async () => {
+    if (!window.confirm(
+      `¿Reabrir ${cancha?.nombre} para el ${fecha}? Las reservas canceladas no se reactivarán.`
+    )) return;
+    setError("");
+    setExito("");
+    setProcesandoCierre(true);
+    try {
+      await api.delete(`/courts/${id}/closures`, { params: { fecha } });
+      setDisponibilidad(null);
+      setRevision((valor) => valor + 1);
+      setExito(
+        `Cancha reabierta para el ${fecha}. Se ofrecerán los horarios semanales libres de reservas activas; las reservas canceladas permanecen canceladas.`
+      );
+    } catch (e) {
+      setError(getApiError(e));
+    } finally {
+      setProcesandoCierre(false);
     }
   };
 
@@ -386,26 +463,19 @@ const CourtSchedule = () => {
 
       {cancha ? (
         <section className="mt-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
-                <CalendarDays size={18} className="text-emerald-700" /> Disponibilidad resultante
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Consulta las franjas registradas y las reservas ya realizadas.
-              </p>
-            </div>
-            <div className="w-full sm:w-52">
-              <Campo id="availability-date" etiqueta="Fecha">
-                <input
-                  id="availability-date"
-                  type="date"
-                  value={fecha}
-                  onChange={(event) => setFecha(event.target.value)}
-                  className={inputCls(false)}
-                />
-              </Campo>
-            </div>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+            <CalendarDays size={18} className="text-emerald-700" /> Disponibilidad y cierres
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Selecciona un día para consultar sus horarios y cerrar o reabrir esta cancha.
+          </p>
+          <div className="mt-4">
+            <CourtMonthlyCalendar
+              idCancha={id}
+              fechaSeleccionada={fecha}
+              onSeleccionarFecha={seleccionarFecha}
+              refreshKey={revision}
+            />
           </div>
 
           {cargandoDisponibilidad ? (
@@ -414,12 +484,60 @@ const CourtSchedule = () => {
             </div>
           ) : disponibilidad ? (
             <>
+              {disponibilidad.fecha === fecha ? (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {disponibilidad.cerrada
+                        ? "Cancha cerrada"
+                        : disponibilidad.horarios.length === 0
+                        ? "Sin horario semanal configurado"
+                        : disponibilidad.disponible
+                        ? "Cancha disponible"
+                        : "No hay horarios disponibles"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {disponibilidad.dia} {disponibilidad.fecha}
+                      {disponibilidad.cerrada
+                        ? " · Las reservas canceladas no se reactivan al reabrir."
+                        : ""}
+                    </p>
+                  </div>
+                  {disponibilidad.cerrada ? (
+                    <button
+                      type="button"
+                      onClick={reabrirCancha}
+                      disabled={procesandoCierre}
+                      className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-60"
+                    >
+                      {procesandoCierre ? <Spinner /> : <RotateCcw size={16} />}
+                      Reabrir este día
+                    </button>
+                  ) : disponibilidad.horarios.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={revisarCierre}
+                      disabled={procesandoCierre || fecha < hoyLocal()}
+                      className="inline-flex items-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {procesandoCierre ? <Spinner /> : <CalendarX size={16} />}
+                      Cerrar este día
+                    </button>
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      No se puede cerrar un día sin horario configurado.
+                    </p>
+                  )}
+                </div>
+              ) : null}
               <p className="mt-4 text-sm text-slate-600">
                 {disponibilidad.dia} {disponibilidad.fecha}: {disponibilidad.slots.filter((slot) => slot.disponible).length} de {disponibilidad.slots.length} turnos disponibles.
               </p>
               {disponibilidad.slots.length === 0 ? (
                 <div className="mt-3 rounded-lg border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
-                  No hay turnos para esta fecha porque no existe un horario de funcionamiento configurado para {disponibilidad.dia}.
+                  {disponibilidad.cerrada
+                    ? "La cancha está cerrada para esta fecha."
+                    : `No hay turnos para esta fecha porque no existe un horario de funcionamiento configurado para ${disponibilidad.dia}.`}
                 </div>
               ) : (
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
@@ -434,13 +552,73 @@ const CourtSchedule = () => {
                     >
                       {slot.hora_inicio} - {slot.hora_fin}
                       <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-wide opacity-80">
-                        {slot.disponible ? "Disponible" : "Reservado"}
+                        {slot.disponible
+                          ? "Disponible"
+                          : slot.motivo === "cancha_cerrada"
+                          ? "Cerrada"
+                          : "Reservado"}
                       </span>
                     </div>
                   ))}
                 </div>
               )}
             </>
+          ) : null}
+
+          {revisionCierre ? (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="confirmar-cierre-titulo"
+            >
+              <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+                <h2
+                  id="confirmar-cierre-titulo"
+                  className="text-lg font-semibold text-slate-950"
+                >
+                  Confirmar cierre para {revisionCierre.fecha}
+                </h2>
+                <p className="mt-1 text-sm text-slate-700">
+                  Se cancelarán {revisionCierre.reservas_afectadas} reservas pendientes o confirmadas. Los pagos asociados no se modifican.
+                </p>
+                <p className="mt-2 text-sm font-medium text-slate-700">
+                  Partidos organizados afectados: {revisionCierre.partidos_afectados}. Descuento estimado: {revisionCierre.descuento_confiabilidad} puntos (15 por partido, máximo 30 por cierre).
+                </p>
+                {revisionCierre.canchas[0]?.reservas?.length > 0 ? (
+                  <ul className="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
+                    {revisionCierre.canchas[0].reservas.map((reserva) => (
+                      <li key={reserva.id_reserva}>
+                        {reserva.hora_inicio}–{reserva.hora_fin} · {reserva.jugador}
+                        {reserva.partido ? ` · Partido: ${reserva.partido.nombre}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <div className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
+                  Las reservas canceladas no se reactivarán al reabrir la cancha. Los jugadores deberán crear una nueva reserva.
+                </div>
+                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setRevisionCierre(null)}
+                    disabled={procesandoCierre}
+                    className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmarCierre}
+                    disabled={procesandoCierre}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60"
+                  >
+                    {procesandoCierre ? <Spinner /> : <CalendarX size={16} />}
+                    {procesandoCierre ? "Cerrando cancha..." : "Confirmar cierre"}
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : null}
         </section>
       ) : null}

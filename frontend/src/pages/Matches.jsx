@@ -222,7 +222,12 @@ const Matches = () => {
                   <h3 className="text-lg font-semibold text-slate-900 group-hover:text-emerald-600">
                     {partido.nombre}
                   </h3>
-                  <p className="text-sm text-slate-500">{partido.deporte}</p>
+                  <p className="text-sm text-slate-500">
+                    {partido.deporte} · {partido.organizador?.nombre} {partido.organizador?.apellido}
+                    {" · Confiabilidad: "}{typeof partido.organizador?.puntaje_confiabilidad === "number"
+                      ? `${partido.organizador.puntaje_confiabilidad}/100`
+                      : "No disponible"}
+                  </p>
                 </div>
                 <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
                   {partido.estado}

@@ -1,7 +1,10 @@
 const ApiError = require("../utils/ApiError");
+const prisma = require("../config/prisma");
 const canchaRepository = require("../repositories/cancha.repository");
 const { isNonEmptyString, cleanString } = require("../utils/validators");
 const cochabambaDepartment = require("../../../shared/cochabamba-department.json");
+const confiabilidadService = require("./confiabilidad.service");
+const canchaImagesService = require("./cancha-images.service");
 
 const TEXT_FIELDS = {
   nombre: 100,
@@ -143,20 +146,68 @@ const listAll = (filters = {}) => canchaRepository.findAll(filters);
 
 const listMine = (id_propietario) => canchaRepository.findByOwner(id_propietario);
 
-const create = async (id_propietario, input) => {
+const create = async (id_propietario, input, imageFiles = []) => {
+  canchaImagesService.validateImages(imageFiles);
+  await confiabilidadService.assertCanRegisterCourt(id_propietario);
   const data = await validateInput(input, [...Object.keys(TEXT_FIELDS), "ubicacion", "precio_hora"]);
-  return canchaRepository.create({ ...data, id_propietario });
+  const uploadedImages = await canchaImagesService.uploadImages(imageFiles, id_propietario);
+  try {
+    return await prisma.$transaction(async (tx) => {
+      await confiabilidadService.assertCanRegisterCourt(id_propietario, tx);
+      return canchaRepository.create(
+        {
+          ...data,
+          id_propietario,
+          imagenes: uploadedImages.map(({ publicUrl }) => publicUrl),
+        },
+        tx
+      );
+    });
+  } catch (error) {
+    await canchaImagesService.removeImages(uploadedImages);
+    throw error;
+  }
 };
 
-const updateMine = async (id_propietario, rawId, input) => {
+const updateMine = async (id_propietario, rawId, input, imageFiles = []) => {
   const id_cancha = parseId(rawId);
-  const data = await validateInput(input);
-  const cancha = await canchaRepository.updateByOwnerAndId(
-    id_propietario,
-    id_cancha,
-    data
+  const existing = await canchaRepository.findByOwnerAndId(id_propietario, id_cancha);
+  if (!existing) throw new ApiError(404, "Cancha no encontrada");
+
+  const existingImages = existing.imagenes || [];
+  const retainedImages = canchaImagesService.parseRetainedImages(
+    input?.imagenes_mantener,
+    existingImages
   );
-  if (!cancha) throw new ApiError(404, "Cancha no encontrada");
+  const validatedImages = canchaImagesService.validateImages(imageFiles);
+  canchaImagesService.assertTotalImageCount(retainedImages.length, validatedImages.length);
+  const removedImages = existingImages.filter((image) => !retainedImages.includes(image));
+  canchaImagesService.assertCanDeleteImages(removedImages, id_propietario);
+
+  const data = await validateInput(input);
+  const uploadedImages = await canchaImagesService.uploadImages(validatedImages, id_propietario);
+  let cancha;
+  try {
+    cancha = await canchaRepository.updateByOwnerAndId(
+      id_propietario,
+      id_cancha,
+      {
+        ...data,
+        imagenes: [
+          ...retainedImages,
+          ...uploadedImages.map(({ publicUrl }) => publicUrl),
+        ],
+      }
+    );
+  } catch (error) {
+    await canchaImagesService.removeImages(uploadedImages);
+    throw error;
+  }
+  if (!cancha) {
+    await canchaImagesService.removeImages(uploadedImages);
+    throw new ApiError(404, "Cancha no encontrada");
+  }
+  await canchaImagesService.deleteImages(removedImages, id_propietario);
   return cancha;
 };
 

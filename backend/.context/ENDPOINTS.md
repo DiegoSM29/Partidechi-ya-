@@ -40,6 +40,8 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | `POST` | `/api/v1/auth/logout` | Sí (JWT) | Cerrar sesión e invalidar el token activo. |
 | `GET` | `/api/v1/users/me` | Sí (JWT) | Consultar el perfil propio. |
 | `PATCH` | `/api/v1/users/me` | Sí (JWT) | Actualizar el perfil propio o cambiar contraseña. |
+| `GET` | `/api/v1/reliability` | Sí (JWT) | Consultar puntaje, permisos e historial propios. |
+| `POST` | `/api/v1/reliability/history/:id/reviews` | Sí (JWT) | Solicitar revisión de un descuento propio. |
 
 ---
 
@@ -58,6 +60,7 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | `PATCH` | `/api/v1/courts/:id/schedules/:scheduleId` | Propietario | Editar una franja existente. |
 | `DELETE` | `/api/v1/courts/:id/schedules/:scheduleId` | Propietario | Eliminar una franja existente. |
 | `GET` | `/api/v1/courts/:id/availability` | No | Consultar turnos dentro de los horarios registrados, excluyendo reservas. |
+| `GET` | `/api/v1/courts/:id/calendar?mes=YYYY-MM` | No | Consultar el estado diario del mes: disponible, cerrada, sin horario o sin turnos libres. |
 
 > **Regla de negocio:** los horarios usan días de `0` (domingo) a `6` (sábado) y horas `HH:mm`. Solo los intervalos registrados pueden reservarse; las horas no registradas no están disponibles. Una reserva debe quedar completamente dentro de un intervalo registrado y no puede superponerse con otra reserva pendiente o confirmada. Las reservas canceladas liberan la franja.
 
@@ -96,19 +99,34 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | Método | Endpoint | Autenticación | Descripción |
 |---|---|---|---|
 | `POST` | `/api/v1/matches` | Jugador | Crear un partido asociado obligatoriamente a una reserva confirmada. |
-| `GET` | `/api/v1/matches` | No | Consultar partidos públicos publicados. |
-| `GET` | `/api/v1/matches/:id` | No | Consultar la información detallada de un partido. |
-| `DELETE` | `/api/v1/matches/:id` | Organizador autenticado | Eliminar un partido publicado propio con al menos 24 horas de anticipación. |
+| `GET` | `/api/v1/matches` | No | Consultar partidos públicos publicados, incluido el puntaje de confiabilidad del organizador. |
+| `GET` | `/api/v1/matches/:id` | No | Consultar la información detallada, puntajes del organizador y participantes. |
+| `DELETE` | `/api/v1/matches/:id` | Organizador autenticado | Cancelar un partido propio con al menos 24 horas de anticipación. |
 | `PATCH` | `/api/v1/matches/:id` | Administrador | Moderar un partido. El organizador no puede modificar un partido después de crearlo. |
 | `POST` | `/api/v1/matches/:id/join` | Jugador | Confirmar asistencia a un partido publicado si hay plazas y faltan al menos 30 minutos, sin duplicar participantes. |
-| `POST` | `/api/v1/matches/:id/leave` | Jugador | Abandonar un partido previamente unido. |
-| `GET` | `/api/v1/matches/:id/participants` | No | Consultar la lista de participantes del partido. |
+| `POST` | `/api/v1/matches/:id/leave` | Jugador | Abandonar un partido previamente unido; descuenta 5 puntos por cada salida confirmada. |
+| `GET` | `/api/v1/matches/:id/participants` | No | Consultar participantes y sus puntajes de confiabilidad. |
+| `POST` | `/api/v1/matches/:id/no-show-reports` | Organizador autenticado | Reportar la inasistencia de un participante aceptado; requiere validación administrativa para descontar puntos. |
 
-> **Regla de negocio:** Solo el organizador puede eliminar su partido publicado y únicamente si faltan al menos 24 horas para su inicio. El servidor valida el plazo y la identidad, aunque la interfaz oculte la opción cuando ya no se cumple la condición.
+> **Regla de negocio:** Solo el organizador puede cancelar su partido activo y únicamente si faltan al menos 24 horas para su inicio. Si hay al menos otro participante aceptado, se descuentan 10 puntos al organizador y se notifica a los participantes; si no, no se descuentan puntos. La cancelación queda registrada sin eliminar el partido; su reserva confirmada puede reutilizarse para crear otro partido, separando el registro cancelado de la nueva asociación. El servidor valida el plazo y la identidad, aunque la interfaz oculte la opción cuando ya no se cumple la condición.
 >
 > Para unirse, el partido debe estar publicado y tener plazas disponibles. El conteo y la inscripcion se realizan de forma serializada, evitando exceder la capacidad ante solicitudes simultaneas. Un participante existente puede volver a unirse si su estado era `ABANDONADO` y queda una plaza.
 >
 > La asistencia se confirma al unirse y solo se permite hasta 30 minutos antes del inicio. El rango de aporte mostrado en el detalle es informativo; no registra pagos ni invoca PayPal.
+
+## Confiabilidad (HU-12)
+
+| Método | Endpoint | Autenticación | Descripción |
+|---|---|---|---|
+| `GET` | `/api/v1/reliability/admin/reports` | Administrador | Consultar reportes de inasistencia pendientes y resueltos. |
+| `PATCH` | `/api/v1/reliability/admin/reports/:id` | Administrador | Validar (`estado: VALIDADO`) o rechazar (`estado: RECHAZADO`) un reporte, con `decision`. |
+| `GET` | `/api/v1/reliability/admin/reviews` | Administrador | Consultar solicitudes de revisión de descuentos. |
+| `PATCH` | `/api/v1/reliability/admin/reviews/:id` | Administrador | Aceptar (`estado: ACEPTADA`) o rechazar (`estado: RECHAZADA`) una apelación, con `decision`. |
+| `PATCH` | `/api/v1/reliability/admin/users/:id/score` | Administrador | Corregir el puntaje indicando `puntaje` de 0 a 100 y `motivo`. |
+
+Cada usuario inicia con 100 puntos y el puntaje permanece entre 0 y 100. Solo la validación administrativa de un reporte descuenta 20 puntos; se permite un reporte por jugador/partido. El cierre de cancha descuenta 15 puntos por partido organizado afectado, hasta 30 por operación. Cancelar un partido con al menos otro participante aceptado descuenta 10 puntos al organizador; abandonar un partido aceptado descuenta 5 puntos al jugador por cada salida. Las cancelaciones no afectan el puntaje de los jugadores. Los descuentos y notificaciones se escriben en la misma transacción; las restricciones se aplican al finalizarla.
+
+Los jugadores con puntaje menor a 60 no pueden unirse a partidos y con menos de 40 tampoco crear reservas. Los propietarios con menos de 60 no pueden registrar canchas y con menos de 40 tampoco publicar disponibilidad nueva. Las apelaciones aceptadas revierten el descuento con un movimiento compensatorio; las correcciones administrativas también quedan registradas.
 
 ---
 
@@ -122,3 +140,16 @@ Todas las respuestas de la API cumplen de forma estricta con la siguiente estruc
 | `GET` | `/api/v1/admin/statistics` | Administrador | Consultar estadísticas generales de la plataforma. |
 
 > **Regla de acceso:** Los endpoints del módulo de administración están protegidos exclusivamente para usuarios con el rol `administrador`.
+
+## 8. Cierres Puntuales y Notificaciones
+
+| Método | Endpoint | Autenticación | Descripción |
+|---|---|---|---|
+| `POST` | `/api/v1/courts/closures/preview` | Propietario | Revisar las canchas propias y reservas activas que afectaria el cierre. |
+| `POST` | `/api/v1/courts/closures` | Propietario | Cerrar canchas propias para una fecha, cancelar reservas activas y notificar a sus jugadores. |
+| `GET` | `/api/v1/courts/closures?fecha=YYYY-MM-DD` | Propietario | Consultar los cierres de sus propias canchas para una fecha. |
+| `DELETE` | `/api/v1/courts/:id/closures?fecha=YYYY-MM-DD` | Propietario | Reabrir una cancha propia en una fecha, sin modificar otras fechas ni reactivar reservas canceladas. |
+| `GET` | `/api/v1/notifications` | Sí (JWT) | Consultar las notificaciones del usuario autenticado. |
+| `PATCH` | `/api/v1/notifications/:id/read` | Sí (JWT) | Marcar como leída una notificación propia. |
+
+El cierre rechaza fechas pasadas, duplicados y días sin horario semanal de funcionamiento; afecta solo a las canchas seleccionadas en la fecha indicada y no cambia horarios semanales ni pagos. La creación del cierre, cancelación de reservas y partidos, y notificaciones se realiza en una sola transacción. La cancelación no descuenta puntos de los jugadores. La consulta requiere una fecha y solo devuelve cierres de canchas del propietario autenticado. Reabrir elimina únicamente el cierre de esa cancha y fecha; la disponibilidad resultante se deriva del horario semanal y de las reservas activas, y las reservas y partidos cancelados no se reactivan.

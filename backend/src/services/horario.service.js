@@ -4,6 +4,8 @@ const ApiError = require("../utils/ApiError");
 const canchaRepository = require("../repositories/cancha.repository");
 const horarioRepository = require("../repositories/horario.repository");
 const reservaRepository = require("../repositories/reserva.repository");
+const cierreRepository = require("../repositories/cierre.repository");
+const confiabilidadService = require("./confiabilidad.service");
 const {
   DIAS_SEMANA,
   normalizeTime,
@@ -146,6 +148,7 @@ const listSchedules = async (rawId) => {
 
 const createSchedules = async (id_propietario, rawId, input) => {
   const cancha = await getOwnedCourt(id_propietario, rawId);
+  await confiabilidadService.assertCanPublishAvailability(id_propietario);
   const items = extractItems(input);
   if (items.length === 0) throw new ApiError(400, "Envía al menos un horario");
   const payloads = items.map((item) => ({
@@ -155,6 +158,7 @@ const createSchedules = async (id_propietario, rawId, input) => {
   assertInternalConflicts(payloads);
 
   await prisma.$transaction(async (tx) => {
+    await confiabilidadService.assertCanPublishAvailability(id_propietario, tx);
     const actuales = await horarioRepository.findByCourtId(cancha.id_cancha, tx);
     for (const payload of payloads) {
       assertNoConflicts(payload, actuales);
@@ -178,8 +182,14 @@ const replaceSchedules = async (id_propietario, rawId, input) => {
     ...buildSchedulePayload(item),
     id_cancha: cancha.id_cancha,
   }));
+  if (payloads.length > 0) {
+    await confiabilidadService.assertCanPublishAvailability(id_propietario);
+  }
   assertInternalConflicts(payloads);
   await prisma.$transaction(async (tx) => {
+    if (payloads.length > 0) {
+      await confiabilidadService.assertCanPublishAvailability(id_propietario, tx);
+    }
     await horarioRepository.deleteByCourt(cancha.id_cancha, tx);
     if (payloads.length > 0) {
       await horarioRepository.createMany(payloads, tx);
@@ -213,9 +223,21 @@ const updateSchedule = async (id_propietario, rawId, rawScheduleId, input) => {
   );
 
   const otros = await horarioRepository.findByCourtId(cancha.id_cancha);
+  const publicaDisponibilidad =
+    payload.dia_semana !== actual.dia_semana ||
+    payload.hora_inicio < actual.hora_inicio ||
+    payload.hora_fin > actual.hora_fin;
+  if (publicaDisponibilidad) {
+    await confiabilidadService.assertCanPublishAvailability(id_propietario);
+  }
   assertNoConflicts(payload, otros, id_horario);
 
-  const actualizado = await horarioRepository.update(id_horario, payload);
+  const actualizado = publicaDisponibilidad
+    ? await prisma.$transaction(async (tx) => {
+        await confiabilidadService.assertCanPublishAvailability(id_propietario, tx);
+        return horarioRepository.update(id_horario, payload, tx);
+      })
+    : await horarioRepository.update(id_horario, payload);
   return { cancha, horario: actualizado };
 };
 
@@ -236,21 +258,32 @@ const parseDuration = (value) => {
   return duration;
 };
 
-// Solo los intervalos de atencion registrados generan turnos reservables.
-const getAvailability = async (rawId, query = {}) => {
-  const cancha = await getCourt(rawId);
-  const fechaRaw = query.fecha ?? query.date ?? todayDateOnly();
-  const fechaInfo = parseDateOnly(fechaRaw);
-  if (!fechaInfo) {
-    throw new ApiError(400, 'La fecha debe tener el formato "YYYY-MM-DD"');
-  }
-  const duracion = parseDuration(query.duracion ?? query.duration);
+const parseMonth = (value) => {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value);
+  if (!match) return null;
 
-  const [horarios, reservas] = await Promise.all([
-    horarioRepository.findByCourtIdAndDay(cancha.id_cancha, fechaInfo.dia_semana),
-    reservaRepository.findByCourtAndDate(cancha.id_cancha, fechaInfo.fecha),
-  ]);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (year < 1) return null;
 
+  const start = new Date(0);
+  start.setUTCHours(0, 0, 0, 0);
+  start.setUTCFullYear(year, month - 1, 1);
+  const end = new Date(0);
+  end.setUTCHours(0, 0, 0, 0);
+  end.setUTCFullYear(year, month, 1);
+  return {
+    year,
+    month,
+    start,
+    end,
+    days: Math.round((end - start) / 86400000),
+    texto: value,
+  };
+};
+
+const buildSlots = (horarios, reservas, cerrado, duracion) => {
   const slots = [];
   for (const franja of horarios) {
     const start = timeToMinutes(franja.hora_inicio);
@@ -264,12 +297,103 @@ const getAvailability = async (rawId, query = {}) => {
       slots.push({
         hora_inicio,
         hora_fin,
-        disponible: !reservado,
-        motivo: reservado ? "reservado" : null,
+        disponible: !cerrado && !reservado,
+        motivo: cerrado ? "cancha_cerrada" : reservado ? "reservado" : null,
       });
     }
   }
-  slots.sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+  return slots.sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+};
+
+const getMonthlyAvailability = async (rawId, query = {}) => {
+  const cancha = await getCourt(rawId);
+  const mes = parseMonth(query.mes ?? query.month);
+  if (!mes) {
+    throw new ApiError(400, 'El mes debe tener el formato "YYYY-MM"');
+  }
+  const duracion = parseDuration(query.duracion ?? query.duration);
+  const [horarios, reservas, cierres] = await Promise.all([
+    horarioRepository.findByCourtId(cancha.id_cancha),
+    reservaRepository.findByCourtAndDateRange(
+      cancha.id_cancha,
+      mes.start,
+      mes.end
+    ),
+    cierreRepository.findClosureDatesForCourt(
+      cancha.id_cancha,
+      mes.start,
+      mes.end
+    ),
+  ]);
+
+  const reservasPorFecha = new Map();
+  for (const reserva of reservas) {
+    const fecha = new Date(reserva.fecha).toISOString().slice(0, 10);
+    const actuales = reservasPorFecha.get(fecha) || [];
+    actuales.push(reserva);
+    reservasPorFecha.set(fecha, actuales);
+  }
+  const cierresPorFecha = new Set(
+    cierres.map((cierre) => new Date(cierre.fecha).toISOString().slice(0, 10))
+  );
+  const dias = [];
+
+  for (let numeroDia = 1; numeroDia <= mes.days; numeroDia += 1) {
+    const fecha = new Date(0);
+    fecha.setUTCHours(0, 0, 0, 0);
+    fecha.setUTCFullYear(mes.year, mes.month - 1, numeroDia);
+    const fechaTexto = fecha.toISOString().slice(0, 10);
+    const dia_semana = fecha.getUTCDay();
+    const horariosDelDia = horarios.filter(
+      (horario) => horario.dia_semana === dia_semana
+    );
+    const cerrado = cierresPorFecha.has(fechaTexto);
+    const slots = buildSlots(
+      horariosDelDia,
+      reservasPorFecha.get(fechaTexto) || [],
+      cerrado,
+      duracion
+    );
+    const turnos_disponibles = slots.filter((slot) => slot.disponible).length;
+    const estado = cerrado
+      ? "CERRADA"
+      : horariosDelDia.length === 0
+      ? "SIN_HORARIO"
+      : turnos_disponibles > 0
+      ? "DISPONIBLE"
+      : "SIN_TURNOS";
+
+    dias.push({
+      fecha: fechaTexto,
+      dia_semana,
+      estado,
+      cerrada: cerrado,
+      disponible: turnos_disponibles > 0,
+      turnos_disponibles,
+      turnos_totales: slots.length,
+    });
+  }
+
+  return { cancha, mes: mes.texto, duracion, dias };
+};
+
+// Solo los intervalos de atencion registrados generan turnos reservables.
+const getAvailability = async (rawId, query = {}) => {
+  const cancha = await getCourt(rawId);
+  const fechaRaw = query.fecha ?? query.date ?? todayDateOnly();
+  const fechaInfo = parseDateOnly(fechaRaw);
+  if (!fechaInfo) {
+    throw new ApiError(400, 'La fecha debe tener el formato "YYYY-MM-DD"');
+  }
+  const duracion = parseDuration(query.duracion ?? query.duration);
+
+  const [horarios, reservas, cierre] = await Promise.all([
+    horarioRepository.findByCourtIdAndDay(cancha.id_cancha, fechaInfo.dia_semana),
+    reservaRepository.findByCourtAndDate(cancha.id_cancha, fechaInfo.fecha),
+    cierreRepository.isClosed(cancha.id_cancha, fechaInfo.fecha),
+  ]);
+
+  const slots = buildSlots(horarios, reservas, Boolean(cierre), duracion);
   const disponibles = slots.filter((slot) => slot.disponible);
 
   return {
@@ -281,6 +405,7 @@ const getAvailability = async (rawId, query = {}) => {
     horarios,
     atencion: horarios,
     reservas,
+    cerrada: Boolean(cierre),
     slots,
     disponibles,
     disponible: disponibles.length > 0,
@@ -295,4 +420,5 @@ module.exports = {
   updateSchedule,
   deleteSchedule,
   getAvailability,
+  getMonthlyAvailability,
 };

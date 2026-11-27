@@ -57,30 +57,36 @@ const Login = () => {
       pieEnlace="Registrate aqui"
       pieRuta="/register"
     >
-      <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <form onSubmit={handleSubmit} noValidate>
         <Alert tipo="error">{errorServidor}</Alert>
 
-        <Campo etiqueta="Correo electronico" error={errores.correo}>
+        <Campo id="login-email" etiqueta="Correo electrónico" error={errores.correo}>
           <input
+            id="login-email"
             type="email"
             name="correo"
             value={form.correo}
             onChange={handleChange}
             placeholder="tu@correo.com"
             autoComplete="email"
+            aria-invalid={Boolean(errores.correo)}
+            aria-describedby={errores.correo ? "login-email-error" : undefined}
             className={inputCls(errores.correo)}
           />
         </Campo>
 
-        <Campo etiqueta="contraseña" error={errores.password}>
+        <Campo id="login-password" etiqueta="Contraseña" error={errores.password}>
           <div className="relative">
             <input
+              id="login-password"
               type={mostrarPassword ? "text" : "password"}
               name="password"
               value={form.password}
               onChange={handleChange}
               placeholder="Tu contraseña"
               autoComplete="current-password"
+              aria-invalid={Boolean(errores.password)}
+              aria-describedby={errores.password ? "login-password-error" : undefined}
               className={`${inputCls(errores.password)} pr-11`}
             />
             <button
@@ -97,7 +103,7 @@ const Login = () => {
         <button
           type="submit"
           disabled={enviando}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="auth-submit flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
         >
           {enviando ? (
             <Spinner className="h-4 w-4 text-white" />

@@ -4,6 +4,8 @@ const ApiError = require("../utils/ApiError");
 const canchaRepository = require("../repositories/cancha.repository");
 const horarioRepository = require("../repositories/horario.repository");
 const reservaRepository = require("../repositories/reserva.repository");
+const cierreRepository = require("../repositories/cierre.repository");
+const confiabilidadService = require("./confiabilidad.service");
 const {
   normalizeTime,
   timeToMinutes,
@@ -105,6 +107,10 @@ const assertCourtIsBookable = async (
   { id_cancha, fechaInfo, hora_inicio, hora_fin },
   tx
 ) => {
+  const cierre = await cierreRepository.isClosed(id_cancha, fechaInfo.fecha, tx);
+  if (cierre) {
+    throw new ApiError(400, "La cancha esta cerrada para la fecha seleccionada");
+  }
   const horarios = await horarioRepository.findByCourtIdAndDay(
     id_cancha,
     fechaInfo.dia_semana,
@@ -151,6 +157,9 @@ const create = async (usuario, input = {}) => {
   try {
     reserva = await prisma.$transaction(
       async (tx) => {
+        if (usuario.rol === "JUGADOR") {
+          await confiabilidadService.assertCanReserve(usuario.id_usuario, tx);
+        }
         // Validar que esté cubierto por horario de atención
         await assertCourtIsBookable(
           { id_cancha, fechaInfo, hora_inicio, hora_fin },
@@ -186,6 +195,12 @@ const create = async (usuario, input = {}) => {
     );
   } catch (error) {
     if (error.code === "P2034") {
+      if (usuario.rol === "JUGADOR") {
+        const puntaje = await confiabilidadService.getScore(usuario.id_usuario);
+        if (puntaje.puntaje_confiabilidad < 40) {
+          throw new ApiError(403, "Tu puntaje de confiabilidad no permite crear reservas");
+        }
+      }
       throw new ApiError(
         400,
         "La cancha acaba de recibir otra reserva en ese horario. Intente nuevamente"

@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CalendarDays, Clock, MapPinned, Users, UserRound, ArrowLeft, Lock, LogIn, LogOut, Trash2, Map, Pencil, Save, X } from "lucide-react";
-import { deleteMatch, getMatchById, joinMatch, leaveMatch, updateMatch } from "../api/matches";
-import { getApiError } from "../api/client";
+import { CalendarDays, Clock, MapPinned, Users, UserRound, ArrowLeft, Lock, LogIn, LogOut, Trash2, Map, Pencil, Save, X, Flag } from "lucide-react";
+import { cancelMatch, getMatchById, joinMatch, leaveMatch, updateMatch } from "../api/matches";
+import api, { getApiError } from "../api/client";
 import Alert from "../components/Alert";
 import Spinner from "../components/Spinner";
 import { useAuth } from "../context/AuthContext";
@@ -22,6 +22,11 @@ const MatchDetail = () => {
   const [mostrarMapa, setMostrarMapa] = useState(false);
   const [editando, setEditando] = useState(false);
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [jugadorReportado, setJugadorReportado] = useState(null);
+  const [jugadoresReportados, setJugadoresReportados] = useState([]);
+  const [motivoReporte, setMotivoReporte] = useState("");
+  const [reportando, setReportando] = useState(false);
+  const [exitoReporte, setExitoReporte] = useState("");
   const [edicion, setEdicion] = useState({
     nombre: "",
     descripcion: "",
@@ -102,6 +107,9 @@ const MatchDetail = () => {
   };
 
   const handleAbandonar = async () => {
+    if (!window.confirm("Al abandonar el partido se descontarán 5 puntos de confiabilidad. ¿Deseas continuar?")) {
+      return;
+    }
     setAccion(true);
     setError("");
     try {
@@ -114,14 +122,44 @@ const MatchDetail = () => {
     }
   };
 
+  const handleReportarInasistencia = async (event) => {
+    event.preventDefault();
+    if (!jugadorReportado) return;
+    setReportando(true);
+    setError("");
+    setExitoReporte("");
+    try {
+      await api.post(`/matches/${id}/no-show-reports`, {
+        id_jugador: jugadorReportado,
+        motivo: motivoReporte,
+      });
+      setJugadoresReportados((actuales) => [...actuales, jugadorReportado]);
+      setExitoReporte("Reporte enviado. Un administrador lo revisará; todavía no se descontaron puntos.");
+      setJugadorReportado(null);
+      setMotivoReporte("");
+    } catch (e) {
+      setError(getApiError(e));
+    } finally {
+      setReportando(false);
+    }
+  };
+
   const handleEliminar = async () => {
-    if (!window.confirm("¿Deseas eliminar este partido? Solo puede eliminarse con al menos 24 horas de anticipación.")) {
+    const tieneParticipantes = partido.participantes.some(
+      (participante) =>
+        participante.estado === "ACEPTADO" &&
+        participante.id_usuario !== user?.id_usuario
+    );
+    const avisoPuntaje = tieneParticipantes
+      ? " Se descontarán 10 puntos de confiabilidad y se notificará a los participantes."
+      : " No se descontarán puntos porque no hay otros participantes confirmados.";
+    if (!window.confirm(`¿Deseas cancelar este partido? Solo puede cancelarse con al menos 24 horas de anticipación.${avisoPuntaje}`)) {
       return;
     }
     setEliminando(true);
     setError("");
     try {
-      await deleteMatch(id);
+      await cancelMatch(id);
       navigate("/matches");
     } catch (e) {
       setError(getApiError(e));
@@ -196,6 +234,7 @@ const MatchDetail = () => {
       </button>
 
       {error ? <Alert tipo="error">{error}</Alert> : null}
+      {exitoReporte ? <div className="mt-4"><Alert tipo="success">{exitoReporte}</Alert></div> : null}
 
       <div className="mt-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-6 sm:flex-row sm:items-start sm:justify-between">
@@ -206,7 +245,12 @@ const MatchDetail = () => {
                 {partido.estado}
               </span>
             </div>
-            <p className="mt-1 text-sm text-slate-500">{partido.deporte} · Organizado por {partido.organizador?.nombre} {partido.organizador?.apellido}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {partido.deporte} · Organizado por {partido.organizador?.nombre} {partido.organizador?.apellido}
+              {" · Confiabilidad: "}{typeof partido.organizador?.puntaje_confiabilidad === "number"
+                ? `${partido.organizador.puntaje_confiabilidad}/100`
+                : "No disponible"}
+            </p>
           </div>
           <div className="flex gap-2">
             {esOrganizador && ["PUBLICADO", "PRIVADO"].includes(partido.estado) ? (
@@ -228,7 +272,7 @@ const MatchDetail = () => {
                 className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <Trash2 size={16} />
-                {eliminando ? "Eliminando..." : "Eliminar partido"}
+                {eliminando ? "Cancelando..." : "Cancelar partido"}
               </button>
             ) : null}
             {user?.rol === "JUGADOR" &&
@@ -482,11 +526,11 @@ const MatchDetail = () => {
                 <li className="p-4 text-sm text-slate-500">Aún no hay participantes</li>
               ) : (
                 aceptados.map((p) => (
-                  <li key={p.id_participante} className="flex items-center gap-3 p-4">
+                  <li key={p.id_participante} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600">
                       <UserRound size={16} />
                     </span>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-slate-900">
                         {p.usuario?.nombre} {p.usuario?.apellido}
                         {p.id_usuario === partido.id_organizador ? (
@@ -496,6 +540,66 @@ const MatchDetail = () => {
                         ) : null}
                       </p>
                       <p className="text-xs text-slate-500">{p.usuario?.correo}</p>
+                      <p className="text-xs font-medium text-emerald-700">
+                        Confiabilidad: {typeof p.usuario?.puntaje_confiabilidad === "number"
+                          ? `${p.usuario.puntaje_confiabilidad}/100`
+                          : "No disponible"}
+                      </p>
+                      {esOrganizador &&
+                      p.id_usuario !== partido.id_organizador &&
+                      !jugadoresReportados.includes(p.id_usuario) &&
+                      new Date(partido.fecha_hora).getTime() < ahora &&
+                      partido.estado !== "CANCELADO" ? (
+                        jugadorReportado === p.id_usuario ? (
+                          <form onSubmit={handleReportarInasistencia} className="mt-3 space-y-2">
+                            <label className="block text-xs font-medium text-slate-600">
+                              Motivo del reporte
+                              <textarea
+                                value={motivoReporte}
+                                onChange={(event) => setMotivoReporte(event.target.value)}
+                                required
+                                maxLength={500}
+                                rows={2}
+                                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                              />
+                            </label>
+                            <div className="flex gap-2">
+                              <button
+                                type="submit"
+                                disabled={reportando || !motivoReporte.trim()}
+                                className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                              >
+                                {reportando ? "Enviando..." : "Enviar a revisión"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setJugadorReportado(null)}
+                                className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                            <p className="text-xs text-slate-500">
+                              El descuento solo se aplica si un administrador valida el reporte.
+                            </p>
+                          </form>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setJugadorReportado(p.id_usuario);
+                              setError("");
+                              setExitoReporte("");
+                            }}
+                            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-900"
+                          >
+                            <Flag size={14} />
+                            Reportar inasistencia
+                          </button>
+                        )
+                      ) : esOrganizador && jugadoresReportados.includes(p.id_usuario) ? (
+                        <p className="mt-2 text-xs font-medium text-emerald-700">Reporte enviado a revisión.</p>
+                      ) : null}
                     </div>
                   </li>
                 ))

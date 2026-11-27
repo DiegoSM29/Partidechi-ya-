@@ -1,0 +1,15 @@
+$kind: http-request
+name: Horarios de la cancha
+method: GET
+url: '{{base_url}}/courts/{{court_id}}/schedules'
+order: 3200
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("la cancha tiene horarios registrados", () => {
+        pm.response.to.have.status(200);
+        const horarios = pm.response.json().data.horarios;
+        pm.expect(horarios).to.be.an("array").that.is.not.empty;
+        pm.expect(horarios[0].hora_inicio).to.match(/^\d{2}:\d{2}$/);
+        pm.expect(horarios[0].hora_fin).to.match(/^\d{2}:\d{2}$/);
+      });

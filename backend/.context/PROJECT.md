@@ -15,3 +15,6 @@ Partidechi ya! es una aplicacion web diseñada para centralizar y facilitar la b
 * **Consulta del Propietario**: El propietario puede consultar las reservas y pagos de sus propias canchas, pero no de canchas ajenas. La verificacion de un pago aprobado confirma la reserva en la misma transaccion.
 * **Integridad de Partidos**: Un partido que requiera cancha debe estar asociado obligatoriamente a una reserva valida y confirmada.
 * **Capacidad Maxima**: El numero de participantes de un partido no puede superar el limite establecido.
+* **Cierres Puntuales**: El propietario puede cerrar sus propias canchas para una fecha; las reservas pendientes/confirmadas se cancelan atomicamente y sus jugadores reciben una notificacion. Puede consultar cierres por fecha y reabrir una cancha propia en una fecha específica. Reabrir no reactiva reservas canceladas; la disponibilidad vuelve a depender del horario semanal y de las reservas activas. Los cierres no modifican pagos ni horarios semanales.
+* Un día sin horario semanal de funcionamiento no se puede cerrar.
+* **Calendario Mensual**: Propietarios y jugadores consultan por mes el estado diario de una cancha, distinguiendo días disponibles, cerrados, sin horario semanal y sin turnos disponibles.

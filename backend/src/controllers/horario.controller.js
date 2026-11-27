@@ -73,6 +73,18 @@ const getAvailability = asyncHandler(async (req, res) => {
   });
 });
 
+const getMonthlyAvailability = asyncHandler(async (req, res) => {
+  const availability = await horarioService.getMonthlyAvailability(
+    req.params.id,
+    req.query
+  );
+  res.status(200).json({
+    success: true,
+    message: "Disponibilidad mensual consultada correctamente",
+    data: availability,
+  });
+});
+
 module.exports = {
   listSchedules,
   createSchedules,
@@ -80,4 +92,5 @@ module.exports = {
   updateSchedule,
   deleteSchedule,
   getAvailability,
+  getMonthlyAvailability,
 };

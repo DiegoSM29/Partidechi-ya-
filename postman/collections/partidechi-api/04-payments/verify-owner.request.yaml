@@ -1,0 +1,25 @@
+$kind: http-request
+name: Verificar pago (propietario)
+method: POST
+url: '{{base_url}}/payments/{{payment_id}}/verify'
+order: 5200
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+body:
+  type: json
+  content: |-
+    {
+      "accion": "APROBAR"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("aprueba el pago y confirma la reserva", () => {
+        pm.response.to.have.status(200);
+        const data = pm.response.json().data;
+        pm.expect(data.pago.estado).to.eql("APROBADO");
+        pm.expect(data.reserva.estado).to.eql("CONFIRMADA");
+      });

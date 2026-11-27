@@ -23,7 +23,13 @@ const findByPartido = (id_partido, client = prisma) =>
     where: { id_partido },
     include: {
       usuario: {
-        select: { id_usuario: true, nombre: true, apellido: true, correo: true },
+        select: {
+          id_usuario: true,
+          nombre: true,
+          apellido: true,
+          correo: true,
+          puntaje_confiabilidad: true,
+        },
       },
     },
     orderBy: { fecha_union: "asc" },

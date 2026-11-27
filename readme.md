@@ -39,22 +39,51 @@ DATABASE_URL="postgresql://usuario:contraseña@localhost:5432/partidechi_db?sche
 JWT_SECRET="tu_secreto_jwt_super_seguro"
 
 ### 4. Ejecutar las Migraciones de la Base de datos
-npx prisma migrate dev
+npx prisma migrate deploy
 npx prisma generate
 
 ### 5. Iniciar el Servidor en Modo Desarrollo
 npm run dev
 El servidor se ejecutara por defecto en http://localhost:4000/api/v1.
 
+## Conectar PostgreSQL a Supabase
+
+El backend ya se conecta a PostgreSQL con Prisma, por lo que no necesita el SDK de Supabase para guardar datos. Este proyecto mantiene su autenticación actual con JWT y la tabla `usuarios`; esta guía migra la base de datos, no las cuentas a Supabase Auth.
+
+Para almacenar fotos de canchas, crea además un bucket público de Supabase Storage llamado `court-images`, con límite de 5 MB por archivo y tipos permitidos JPG, PNG y WebP. Configura `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_STORAGE_BUCKET=court-images` únicamente en `backend/.env`; nunca expongas la clave `service_role` en el frontend ni la subas al repositorio.
+
+### Preparar el proyecto Supabase
+
+1. Crea un proyecto Supabase vacío y guarda de forma segura la contraseña de su base de datos.
+2. En **Connect**, copia la cadena de conexión **Session pooler** (puerto `5432`). Este backend es un servidor Express persistente, por lo que no necesita el Transaction pooler.
+3. Haz una copia de `backend/.env` y cambia `DATABASE_URL` por esa cadena. Mantén `JWT_SECRET` y las demás variables actuales. No compartas ni subas el `.env` al repositorio.
+4. Desde `backend`, aplica el esquema existente y genera Prisma:
+
+```powershell
+npm run prisma:deploy
+npm run prisma:generate
+```
+
+`prisma:deploy` aplica las migraciones versionadas de `prisma/migrations` sin borrar datos. En el proyecto recién creado creará las tablas y el historial de Prisma.
+
+### Empezar con la base vacía
+
+Esta configuración aplica únicamente el esquema y deja la base Supabase sin registros. No ejecutes exportaciones desde Laragon: sus datos locales seguirán intactos, pero usuarios, canchas, reservas y partidos no estarán en Supabase. Las cuentas deberán registrarse nuevamente.
+
+Cuando el proyecto Supabase esté creado, configura `DATABASE_URL` con su Session pooler en el entorno del backend, ejecuta las migraciones de arriba y reinicia el servidor. Comprueba el registro, el inicio de sesión y las operaciones principales. No pegues cadenas de conexión, contraseñas ni `JWT_SECRET` en el chat.
+
 ## Endpoints Principales de la API
 * Autenticacion: /api/v1/auth/register, /api/v1/auth/login
 * Usuarios: /api/v1/users/me
+* Confiabilidad: GET /api/v1/reliability, POST /api/v1/reliability/history/:id/reviews
 * Canchas: GET /api/v1/courts, GET /api/v1/courts/mine, POST /api/v1/courts, PATCH y DELETE /api/v1/courts/:id
-* Horarios: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability
+* Horarios y calendario mensual: /api/v1/courts/:id/schedules, /api/v1/courts/:id/availability, /api/v1/courts/:id/calendar?mes=YYYY-MM
+* Cierres: POST /api/v1/courts/closures/preview, POST /api/v1/courts/closures, GET /api/v1/courts/closures?fecha=YYYY-MM-DD, DELETE /api/v1/courts/:id/closures?fecha=YYYY-MM-DD
 * Reservas: POST /api/v1/reservations, GET /api/v1/reservations, GET /api/v1/reservations/:id, POST /api/v1/reservations/:id/cancel, POST /api/v1/reservations/:id/confirm
 * Pagos: GET /api/v1/reservations/:id/payments/amount, POST /api/v1/reservations/:id/payments/paypal/simulate, POST /api/v1/reservations/:id/payments/paypal/capture, POST /api/v1/reservations/:id/payments, GET /api/v1/reservations/:id/payments, POST /api/v1/payments/:id/verify
-* Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, DELETE /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants
+* Partidos Amistosos: POST /api/v1/matches, GET /api/v1/matches, GET /api/v1/matches/:id, PATCH /api/v1/matches/:id, DELETE /api/v1/matches/:id, POST /api/v1/matches/:id/join, POST /api/v1/matches/:id/leave, GET /api/v1/matches/:id/participants, POST /api/v1/matches/:id/no-show-reports
 * Administracion: /api/v1/admin/users, /api/v1/admin/statistics
+* Notificaciones: GET /api/v1/notifications, PATCH /api/v1/notifications/:id/read
 
 ## Gestion de Canchas
 
@@ -66,13 +95,13 @@ Los deportes permitidos son futbol 5, futbol 8, futbol 11, wally, padel y fronto
 |---|---|---|---|
 | GET | `/api/v1/courts` | Publico | Consultar canchas disponibles |
 | GET | `/api/v1/courts/mine` | Propietario | Consultar las canchas propias |
-| POST | `/api/v1/courts` | Propietario | Registrar una cancha |
-| PATCH | `/api/v1/courts/:id` | Propietario | Editar una cancha propia |
+| POST | `/api/v1/courts` | Propietario | Registrar una cancha; acepta hasta 5 imágenes JPG, PNG o WebP de máximo 5 MB cada una |
+| PATCH | `/api/v1/courts/:id` | Propietario | Editar una cancha propia y mantener, añadir o eliminar imágenes |
 | DELETE | `/api/v1/courts/:id` | Propietario | Eliminar una cancha propia |
 
 Las altas y cambios de ubicacion requieren direccion, latitud y longitud. El backend verifica que el punto corresponda al departamento de Cochabamba, Bolivia, mediante geocodificacion inversa de Nominatim; una ubicacion fuera del departamento se rechaza.
 
-La tabla `canchas` se crea y amplía mediante las migraciones incluidas en `prisma/migrations`. Para aplicar las migraciones pendientes en una base local, ejecuta `npx prisma migrate dev` desde `backend` y luego `npx prisma generate`.
+La tabla `canchas` se crea y amplía mediante las migraciones incluidas en `prisma/migrations`. Para aplicar las migraciones pendientes sin resetear la base, ejecuta `npx prisma migrate deploy` desde `backend` y luego `npx prisma generate`.
 
 ## Horarios y Disponibilidad
 
@@ -155,10 +184,10 @@ Se implementó la creación y gestión de partidos amistosos asociados a reserva
   - La capacidad de participantes se define por partido y no depende de un límite establecido por el propietario de la cancha.
   - `POST /api/v1/matches` crea un partido asociado obligatoriamente a una `reserva` válida y confirmada. El deporte se toma de la cancha reservada (no editable manualmente). El organizador se agrega automáticamente como participante aceptado.
   - `GET /api/v1/matches` lista partidos públicos publicados. `GET /api/v1/matches/:id` consulta el detalle con participantes. `PATCH /api/v1/matches/:id` queda reservado al administrador para moderación: un partido creado por un jugador no puede modificarse después de su creación.
-  - `DELETE /api/v1/matches/:id` permite al organizador eliminar su partido publicado únicamente cuando faltan al menos 24 horas para su inicio; el backend aplica el control de identidad y plazo.
+  - `DELETE /api/v1/matches/:id` cancela el partido del organizador (sin eliminar su historial), únicamente cuando faltan al menos 24 horas para el inicio. Si hay otro participante confirmado, descuenta 10 puntos al organizador y notifica a los participantes; si no hay, no se descuentan puntos. La reserva confirmada puede reutilizarse para organizar otro partido.
   - `POST /api/v1/matches/:id/join` permite a jugadores unirse solo a partidos publicados con plazas disponibles; la operación bloquea el partido en transacción para evitar sobrepasar su capacidad en solicitudes simultáneas y evita duplicados, permitiendo volver a unirse tras abandonar.
   - La asistencia se confirma al unirse y el backend rechaza nuevas confirmaciones durante los últimos 30 minutos previos al inicio. El detalle muestra la ubicación de la cancha y un rango informativo del aporte por jugador calculado a partir del precio de la reserva, el cupo y los participantes actuales; no se inicia ningún cobro ni flujo de PayPal.
-  - `POST /api/v1/matches/:id/leave` permite abandonar el partido (el organizador no puede abandonar).
+  - `POST /api/v1/matches/:id/leave` permite abandonar el partido (el organizador no puede abandonar) y descuenta 5 puntos por cada salida tras confirmar asistencia.
   - `GET /api/v1/matches/:id/participants` consulta la lista de participantes.
   - El partido indica `nombre`, `deporte`, `fecha_hora`, `jugadores_maximos`, `descripcion`, `estado` y está asociado a una reserva confirmada cuando requiere cancha.
 
@@ -170,7 +199,7 @@ Se implementó la creación y gestión de partidos amistosos asociados a reserva
   - La barra superior resalta la pestaña activa (Buscar canchas, Partidos, Crear partido, Mis canchas, Reservas o Perfil), incluyendo las vistas de detalle y subrutas de cada sección.
   - El propietario ya no configura un límite de jugadores en la cancha; el organizador establece la capacidad del encuentro al crear cada partido.
   - El detalle del partido actualiza participantes y plazas disponibles después de unirse, e impide un segundo registro del mismo usuario.
-  - Vista de detalle del partido con lista de participantes, control de plazas, opción para unirse o abandonar y eliminación por el organizador con un mínimo de 24 horas de anticipación.
+  - Vista de detalle del partido con lista de participantes y sus puntajes de confiabilidad, control de plazas, opción para unirse o abandonar y cancelación por el organizador con un mínimo de 24 horas de anticipación. Las confirmaciones advierten los descuentos de 5 puntos por abandono y 10 puntos por cancelar con participantes confirmados.
   - Al confirmar asistencia se muestra la ubicación y el rango estimado de costo compartido de la reserva, junto al límite de 30 minutos; es informativo y no requiere pago.
   - Se corrigió la carga del detalle de reserva y la respuesta de creación del backend para que el acceso "Organizar partido" envíe el identificador de reserva y abra correctamente el partido creado.
   - El filtro por precio máximo muestra canchas con precio menor o igual al valor ingresado y permite ingresar valores intermedios en incrementos de Bs. 1.
@@ -178,3 +207,110 @@ Se implementó la creación y gestión de partidos amistosos asociados a reserva
 ## Frontend de Canchas
 
 El frontend de propietarios documenta las rutas de consulta, alta y edicion en [frontend/README.md](frontend/README.md). Incluye mapa OpenStreetMap, busqueda por direccion, geolocalizacion, visualizacion de ubicaciones guardadas y eliminacion de canchas.
+
+## Gestión de Reservas y Verificación de Pagos (HU - Propietario)
+
+Se implementó la consulta de reservas y la verificación de pagos para que el propietario administre correctamente sus canchas. Además, el flujo de pago cambió: **una reserva se confirma automáticamente cuando su pago queda aprobado**, de modo que el jugador puede organizar un partido inmediatamente después de pagar.
+
+### Backend
+
+- **Consulta de reservas del propietario**
+  - `GET /api/v1/reservations` ahora acepta filtros opcionales: `id_cancha` (también `cancha_id`/`court_id`), `estado` (`PENDIENTE`, `CONFIRMADA`, `CANCELADA`, `COMPLETADA`) y `estado_pago` (`PENDIENTE`, `APROBADO`, `RECHAZADO`, `REEMBOLSADO`, `SIN_PAGO`).
+  - Para el rol `PROPIETARIO`, el backend fuerza el filtro `cancha.id_propietario = usuario autenticado`. Aunque se envíe el identificador de una cancha ajena, la consulta no devuelve reservas ajenas.
+  - Las respuestas incluyen la cancha, los datos de contacto del jugador, la lista de pagos (monto, método, referencia, comprobante, estado y fechas) y el partido asociado si existe.
+  - `GET /api/v1/reservations/:id` también incluye pagos y datos del jugador. Mantiene la validación de acceso: jugador propietario de la reserva, propietario de la cancha o administrador.
+- **Verificación de pagos y comprobantes**
+  - `POST /api/v1/payments/:id/verify` acepta `accion: "APROBAR" | "RECHAZAR"`.
+  - Al aprobar, el pago pasa a `APROBADO` y la reserva a `CONFIRMADA` en una sola transacción con control de solapamientos.
+  - Al rechazar, el pago queda `RECHAZADO` y la reserva continúa pendiente.
+  - Solo el propietario de la cancha o un administrador puede verificar el pago; un jugador recibe `403`.
+- **Confirmación automática al pagar**
+  - `POST /api/v1/reservations/:id/payments/paypal/capture` captura la orden de PayPal al regresar del checkout, marca el pago como aprobado y confirma la reserva automáticamente.
+  - La operación es idempotente: si la reserva ya está confirmada no vuelve a capturar ni duplica pagos.
+  - En `PAYPAL_MODE=sandbox`, si PayPal no está configurado o no puede capturarse la orden, se permite completar la simulación para no bloquear las pruebas. En modo `live` un fallo de captura impide confirmar el pago.
+  - La reserva confirmada ya cumple la regla existente de partidos: `POST /api/v1/matches` exige una reserva `CONFIRMADA` del mismo jugador.
+- **Pagos manuales**
+  - `POST /api/v1/reservations/:id/payments` sigue permitiendo registrar un pago con método, referencia y `comprobante_url`. Queda en estado `PENDIENTE` hasta que el propietario lo verifique.
+
+| Método | Endpoint | Acceso | Descripción |
+|---|---|---|---|
+| GET | `/api/v1/reservations?id_cancha=&estado=&estado_pago=` | Autenticado | Consultar reservas autorizadas; el propietario solo ve sus canchas |
+| GET | `/api/v1/reservations/:id` | Autenticado | Consultar detalle de reserva con pagos y datos del jugador |
+| POST | `/api/v1/reservations/:id/payments/paypal/capture` | Autenticado | Capturar pago PayPal y confirmar la reserva automáticamente |
+| GET | `/api/v1/reservations/:id/payments` | Autenticado | Consultar pagos y comprobantes de una reserva autorizada |
+| POST | `/api/v1/payments/:id/verify` | Propietario / Admin | Aprobar o rechazar un pago; al aprobar se confirma la reserva |
+| POST | `/api/v1/reservations/:id/payments` | Autenticado | Registrar pago manual pendiente de verificación |
+
+### Frontend
+
+- **Nueva vista de reservas del propietario** en `/reservations/owner` (alias `/owner/reservations`), accesible desde el navbar ("Reservas") y desde el botón de cada cancha en "Mis canchas".
+  - Filtros por cancha, estado de reserva y estado de pago.
+  - Tarjetas de resumen: reservas encontradas, confirmadas, pendientes de pago y pagos por verificar.
+  - Cada reserva muestra fecha, horario, monto, estado, jugador, correo y cancha.
+  - Cada pago muestra método, monto, referencia, estado, fechas y enlace al comprobante cuando existe.
+  - Botones "Aprobar y confirmar" y "Rechazar" para pagos pendientes. Al aprobar se informa que la reserva quedó confirmada automáticamente.
+  - La vista solo está protegida para el rol `PROPIETARIO`, y el backend vuelve a validar la pertenencia de cada cancha.
+- **Flujo de pago actualizado en `/reservations/:id/pay`**
+  - Al regresar de PayPal con `?paypal=success`, el frontend llama a la captura del pago y muestra la reserva confirmada.
+  - La pantalla de éxito incluye el botón "Organizar partido" para crear un partido asociado a esa reserva confirmada.
+  - Se agregó un formulario de pago manual con método, referencia y enlace de comprobante.
+- **Creación de partidos**
+  - `CreateMatch` ahora muestra únicamente reservas `CONFIRMADA` y explica que una reserva se confirma automáticamente al pagar.
+  - Si no hay reservas confirmadas, indica que primero debe pagarse una reserva.
+
+## Consulta de Reservas del Jugador (HU-09)
+
+El jugador puede consultar su historial de reservas independientemente de la navegación con la que las creó:
+
+- **Backend**
+  - `GET /api/v1/reservations` devuelve únicamente las reservas del jugador autenticado; el filtro por usuario se aplica en el servidor.
+  - `GET /api/v1/reservations/:id` permite volver a cargar el detalle por identificador y valida que la reserva pertenezca al jugador (o sea accesible por el rol autorizado).
+  - Las respuestas contienen la cancha y ubicación, fecha, horario, importe, estado de reserva y pagos asociados con su estado.
+- **Frontend**
+  - `/reservations` presenta las pestañas **Próximas**, **Pasadas** y **Canceladas**, con un estado vacío que invita a buscar canchas cuando no hay reservas.
+  - `/reservations/:id` carga el detalle desde la API y no depende del estado temporal de navegación ni de la sesión en que se creó la reserva.
+  - El enlace **Mis reservas** aparece en la navegación del jugador. Ambas vistas están protegidas para el rol `JUGADOR`.
+
+### Archivos principales modificados
+
+- `backend/src/repositories/reserva.repository.js`: incluye pagos, jugador y partido en las consultas de reservas.
+- `backend/src/services/reserva.service.js`: filtros de consulta y aislamiento de reservas por propietario.
+- `backend/src/services/pago.service.js`: captura de PayPal, confirmación automática y verificación transaccional de pagos.
+- `backend/src/controllers/reserva.controller.js` y `backend/src/controllers/pago.controller.js`: nuevos parámetros y endpoint de captura.
+- `backend/src/routes/reservation.routes.js`: ruta `POST /reservations/:id/payments/paypal/capture`.
+- `frontend/src/pages/OwnerReservations.jsx`: panel de reservas y pagos del propietario.
+- `frontend/src/pages/ReservationPay.jsx`: captura automática, pago manual y acceso a organizar partido.
+- `frontend/src/pages/MyReservations.jsx` y `frontend/src/pages/ReservationDetail.jsx`: consulta del historial y detalle persistente de reservas del jugador.
+- `frontend/src/pages/CreateMatch.jsx`: solo reservas confirmadas.
+- `frontend/src/App.jsx`, `frontend/src/components/Navbar.jsx`, `frontend/src/pages/OwnerCourts.jsx` y `frontend/src/api/reservations.js`: rutas, navegación y llamadas a la API.
+
+### Validación realizada
+
+- `node --check` sobre los archivos backend modificados.
+- `npx prisma validate` con el esquema actual.
+- `npm run build` en el frontend (compilación correcta).
+- Pruebas manuales contra la API local: listado y filtros de reservas del propietario, aprobación de un pago con confirmación automática de la reserva, captura simulada de PayPal en sandbox y rechazo de verificación por parte de un jugador.
+- No se requirieron migraciones nuevas porque se reutilizan los estados y campos existentes de `reservas` y `pagos`.
+
+## Cierre Puntual de Canchas (Propietario)
+
+- Desde el calendario mensual de una cancha propia, el propietario puede cerrar un día actual o futuro, revisar sus reservas pendientes/confirmadas afectadas y confirmar la operación.
+- No se permite cerrar una fecha sin horario semanal configurado para ese día.
+- El backend crea los cierres, cancela las reservas y registra una notificación para cada jugador dentro de una transacción. Si la operación falla, no se aplica ningún cambio parcial.
+- Los partidos asociados a reservas afectadas también se cancelan y se notifica a sus participantes. El descuento al propietario se aplica solo a dos partidos como máximo por operación; los jugadores no reciben descuentos por la cancelación.
+- La disponibilidad no muestra turnos reservables y las nuevas reservas se rechazan para una cancha cerrada en esa fecha. El cierre no modifica el horario semanal ni el importe/estado de pagos.
+- Un índice único por cancha y fecha evita cierres duplicados. Los jugadores consultan y marcan como leídas sus notificaciones en `/notifications`.
+- Propietarios y jugadores consultan un calendario mensual; cada fecha indica si hay turnos disponibles, está cerrada, no tiene horario configurado o no tiene turnos libres.
+- El propietario puede reabrir un día desde el calendario de esa cancha; solo se elimina el cierre seleccionado y se mantienen canceladas las reservas anteriores.
+
+## Puntaje de Confiabilidad (HU-12)
+
+- Cada cuenta inicia con 100 puntos individuales. El valor se mantiene entre 0 y 100 y cada variación conserva motivo, fecha, puntaje anterior y resultado.
+- El organizador puede reportar la inasistencia de un jugador aceptado una vez por partido. El descuento de 20 puntos ocurre solamente cuando un administrador valida el reporte.
+- Si un cierre afecta partidos organizados, el propietario pierde 15 puntos por partido cancelado, hasta 30 por operación. La vista previa muestra los partidos y el descuento estimado; las cancelaciones no restan puntos a sus jugadores.
+- Abandonar un partido aceptado descuenta 5 puntos por cada salida confirmada; cancelar un partido con al menos otro participante aceptado descuenta 10 puntos al organizador y notifica a sus participantes. Al cancelar sin otros participantes no hay descuento. El organizador y los participantes confirmados no pierden puntos por la cancelación.
+- Los avisos de descuento y de cambio de permisos se registran antes de actualizar el puntaje en la misma transacción. El usuario puede solicitar revisión desde su perfil (`/profile`); el administrador acepta o rechaza apelaciones y puede corregir el puntaje con motivo registrado.
+- El perfil muestra el puntaje, permisos e historial; otros jugadores pueden ver el puntaje del organizador en la lista/detalle de partidos y el de participantes aceptados en el detalle.
+- Rangos: 80–100 sin restricciones; 60–79 advertencia sin cambios de acciones; 40–59 el jugador no se une a partidos y el propietario no registra canchas; 1–39 el jugador tampoco crea reservas y el propietario tampoco publica disponibilidad; 0 requiere revisión administrativa para recuperar esas acciones.
+- Las restricciones solo impiden acciones nuevas: no cancelan reservas ni partidos existentes, ni impiden consultar o atender compromisos. No hay recuperación automática por actividad.
+- APIs administrativas: `GET /api/v1/reliability/admin/reports`, `PATCH /api/v1/reliability/admin/reports/:id`, `GET /api/v1/reliability/admin/reviews`, `PATCH /api/v1/reliability/admin/reviews/:id` y `PATCH /api/v1/reliability/admin/users/:id/score`.

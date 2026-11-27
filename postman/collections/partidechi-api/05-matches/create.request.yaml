@@ -1,0 +1,29 @@
+$kind: http-request
+name: Crear partido
+method: POST
+url: '{{base_url}}/matches'
+order: 6000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{player_token}}'
+body:
+  type: json
+  content: |-
+    {
+      "id_reserva": {{reservation_id}},
+      "nombre": "Partido de prueba {{$timestamp}}",
+      "jugadores_maximos": 10,
+      "descripcion": "Partido generado por la coleccion de regresion."
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("crea el partido sobre la reserva confirmada", () => {
+        pm.response.to.have.status(201);
+        const partido = pm.response.json().data.partido;
+        pm.expect(partido.estado).to.eql("PUBLICADO");
+        pm.expect(partido.deporte).to.be.a("string").and.not.empty;
+        pm.collectionVariables.set("match_id", partido.id_partido);
+      });
