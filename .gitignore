@@ -1,3 +1,8 @@
 node_modules/
 .env
 dist/
+
+# Tokens y resultados generados por las pruebas de carga
+tests/load/k6/data/
+tests/load/k6/results/
+tests/load/*.log

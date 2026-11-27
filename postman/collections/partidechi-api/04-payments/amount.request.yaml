@@ -1,0 +1,18 @@
+$kind: http-request
+name: Importe a pagar
+method: GET
+url: '{{base_url}}/reservations/{{reservation_id}}/payments/amount'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{player_token}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("devuelve el importe en bolivianos", () => {
+        pm.response.to.have.status(200);
+        const data = pm.response.json().data;
+        pm.expect(data.amount).to.be.a("number").and.above(0);
+        pm.expect(data.currency).to.eql("BOB");
+        pm.collectionVariables.set("amount", data.amount);
+      });

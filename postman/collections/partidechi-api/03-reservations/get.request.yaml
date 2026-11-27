@@ -1,0 +1,18 @@
+$kind: http-request
+name: Detalle de reserva
+method: GET
+url: '{{base_url}}/reservations/{{reservation_id}}'
+order: 4100
+headers:
+  - key: Authorization
+    value: 'Bearer {{player_token}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("el jugador consulta su reserva", () => {
+        pm.response.to.have.status(200);
+        const reserva = pm.response.json().data.reserva;
+        pm.expect(String(reserva.id_reserva)).to.eql(String(pm.collectionVariables.get("reservation_id")));
+        pm.expect(reserva.pagos).to.be.an("array");
+        pm.expect(reserva.cancha).to.be.an("object");
+      });

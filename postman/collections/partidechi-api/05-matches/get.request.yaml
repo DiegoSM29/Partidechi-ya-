@@ -1,0 +1,14 @@
+$kind: http-request
+name: Detalle de partido
+method: GET
+url: '{{base_url}}/matches/{{match_id}}'
+order: 6100
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("devuelve el partido con su cancha", () => {
+        pm.response.to.have.status(200);
+        const partido = pm.response.json().data.partido;
+        pm.expect(String(partido.id_partido)).to.eql(String(pm.collectionVariables.get("match_id")));
+        pm.expect(partido.participantes).to.be.an("array");
+      });

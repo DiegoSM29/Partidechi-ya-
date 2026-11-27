@@ -1,0 +1,14 @@
+$kind: http-request
+name: Listar canchas
+method: GET
+url: '{{base_url}}/courts'
+order: 3000
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("devuelve canchas publicas", () => {
+        pm.response.to.have.status(200);
+        const body = pm.response.json();
+        pm.expect(body.data.canchas).to.be.an("array").that.is.not.empty;
+        pm.collectionVariables.set("court_id", body.data.canchas[0].id_cancha);
+      });
